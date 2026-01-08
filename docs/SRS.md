@@ -53,7 +53,7 @@ Talkify AI operates as a client-server architecture. The Frontend (React) captur
 
 ## 4. System Design (High-Level)
 
-![System Architecture](file:///c:/Users/Delta%20Infosys/.gemini/antigravity/brain/68d5e13f-392e-426c-be55-ad98848a7c5a/uploaded_image_1767853833135.png)
+![System Architecture](./assets/system_architecture.png)
 
 1. **Frontend**: React hooks for state management and Web Camera API for capture.
 2. **Backend**: FastAPI with Uvicorn; OpenCV for frame manipulation.

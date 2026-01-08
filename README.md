@@ -16,8 +16,8 @@ Talkify AI is an advanced, real-time communication bridge designed for the heari
 
 ## 🏗️ System Architecture
 
-![Architecture](https://github.com/rayyananas0369/Talkify-AI/blob/main/SRS.md#system-design-high-level) 
-*(See SRS.md for detailed diagram)*
+![Architecture](docs/assets/system_architecture.png) 
+*(See [SRS.md](docs/SRS.md) for detailed diagram)*
 
 ## 👥 Project Team
 
@@ -28,9 +28,9 @@ Talkify AI is an advanced, real-time communication bridge designed for the heari
 
 ## 📂 Documentation
 
-- [**SRS.md**](SRS.md): Software Requirement Specifications
-- [**TEAM.md**](TEAM.md): Team Roles and Responsibilities
-- [**PLAN.md**](PLAN.md): Project Roadmap and Tasks
+- [**SRS.md**](docs/SRS.md): Software Requirement Specifications
+- [**TEAM.md**](docs/TEAM.md): Team Roles and Responsibilities
+- [**PLAN.md**](docs/PLAN.md): Project Roadmap and Tasks
 - [**TRAINING_GUIDE.md**](TRAINING_GUIDE.md): Instruction for dataset training
 
 ## 🚀 Getting Started
