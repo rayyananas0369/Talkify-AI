@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+tensorflow
+mediapipe
+opencv-python
+numpy
+python-multipart
+fastapi-cors
+ultralytics
