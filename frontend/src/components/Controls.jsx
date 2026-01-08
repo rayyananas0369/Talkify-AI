@@ -1,16 +1,17 @@
+import React from 'react';
 import { Hand, Accessibility, Repeat, Smile } from "lucide-react";
 
-export default function Features() {
+const Controls = () => {
   const features = [
     {
       title: "Sign Language Recognition",
       desc: "Real-time translation of sign language gestures into text using advanced AI models.",
-      icon: <Hand size={32} color="#f59e0b" />, // Yellow-500
+      icon: <Hand size={32} color="#f59e0b" />,
     },
     {
       title: "Lip Reading Technology",
       desc: "Cutting-edge lip reading algorithms convert visual speech into written text.",
-      icon: <Smile size={32} color="#3b82f6" />, // Blue
+      icon: <Smile size={32} color="#3b82f6" />,
     },
     {
       title: "Accessibility Focused",
@@ -37,4 +38,6 @@ export default function Features() {
       ))}
     </div>
   );
-}
+};
+
+export default Controls;

@@ -1,58 +1,45 @@
-import { useState } from "react";
-import ModeToggle from "./components/ModeToggle";
-import CameraFeed from "./components/CameraFeed";
-import OutputBox from "./components/OutputBox";
-import Features from "./components/Features";
-import Footer from "./components/Footer";
-
+import React, { useState } from 'react';
+import CameraFeed from './components/CameraFeed';
+import PredictionBox from './components/PredictionBox';
+import ModeSelector from './components/ModeSelector';
+import Controls from './components/Controls';
+import Footer from './components/Footer';
+import './styles/main.css';
 
 function App() {
-  const [mode, setMode] = useState("lip"); // default mode
-  const [output, setOutput] = useState("");
+  const [mode, setMode] = useState('sign'); // 'sign' or 'lip'
+  const [output, setOutput] = useState('');
   const [showGuides, setShowGuides] = useState(true);
 
   return (
     <div className="app-container">
-      {/* Header */}
-      <header className="app-header">
-        <div style={{ width: '80px' }}></div> {/* Spacer */}
-        <div className="header-brand" style={{ textAlign: 'center' }}>
-          <h1>Talkify AI</h1>
-          <p>Multimodal AI for hearing and speech impaired users</p>
-        </div>
-        <nav>
-          <a href="#about" className="btn-about" style={{ textDecoration: 'none' }}>
-            About
-          </a>
-        </nav>
+      <header className="main-header">
+        <h1 className="header-title">Talkify AI</h1>
+        <p className="header-subtitle">Empowering accessibility through real-time communication</p>
+        <button className="about-btn">About</button>
       </header>
 
       <main className="main-content">
+        <ModeSelector currentMode={mode} setMode={setMode} />
 
-        {/* Mode Toggle */}
-        <ModeToggle onModeChange={setMode} />
-
-        {/* Dashboard Grid */}
         <div className="dashboard-grid">
-          {/* Camera Feed */}
-          <CameraFeed mode={mode} setOutputText={setOutput} showGuides={showGuides} />
-
-          {/* Output Box */}
-          <OutputBox
-            text={output}
-            setOutputText={setOutput}
+          <CameraFeed
+            mode={mode}
+            showGuides={showGuides}
+            setShowGuides={setShowGuides} // Used for OverlayToggle
+            onPrediction={(text) => setOutput(prev => prev + ' ' + text)}
+          />
+          <PredictionBox
+            output={output}
+            setOutput={setOutput}
             showGuides={showGuides}
             setShowGuides={setShowGuides}
           />
         </div>
 
-        {/* Features Section */}
-        <section id="about" style={{ marginTop: '3rem' }}>
-          <Features />
-        </section>
-
-
+        <Controls />
       </main>
+
       <Footer />
     </div>
   );
