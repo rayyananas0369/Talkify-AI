@@ -1,66 +1,64 @@
-# AI Communication Assistant for Hearing and Speech Impaired Users
+# Talkify AI: Multimodal AI Communication Assistant
 
-Develop a full-stack AI-powered communication assistant that converts sign language gestures and lip movements into readable English text in real time.
+[![Join the revolution](https://img.shields.io/badge/Accessibility-Innovation-indigo)](#)
+[![Powered by](https://img.shields.io/badge/Backend-FastAPI-blue)](#)
+[![Powered by](https://img.shields.io/badge/Frontend-React-61dafb)](#)
 
-## Tech Stack
-- **Frontend**: React (Vite), Vanilla CSS, Lucide Icons
-- **Backend**: FastAPI, TensorFlow/Keras, MediaPipe, OpenCV
-- **Models**: CNN (Sign Language), CNN+LSTM (Lip Reading)
+Talkify AI is an advanced, real-time communication bridge designed for the hearing and speech impaired community. By leveraging cutting-edge computer vision and deep learning, it translates lip movements and sign language gestures into readable text instantly.
 
-## Project Structure
-```
-Talkify_AI/
-├── backend/
-│   ├── models/            # Neural Network Architectures
-│   ├── inference.py       # Prediction & MediaPipe Logic
-│   ├── main.py           # FastAPI Server
-│   ├── train.py          # Model Training Script
-│   └── requirements.txt
-├── frontend/
-│   ├── src/              # React Source
-│   └── ...
-```
+## 🌟 Key Features
 
-## Setup & Running
+- **Lip Reading (Dual Language)**: Real-time recognition of lip movements in both **Bengali** and **English**.
+- **Sign Language Recognition**: High-accuracy translation of ASL gestures using YOLOv8 and MediaPipe.
+- **Hybrid AI Engine**: Combines MediaPipe keypoint extraction with CNN-LSTM temporal processing.
+- **Real-time Performance**: Optimized for low-latency feedback (<500ms).
+- **Professional UI**: Clean, accessible interface with visual guidance toggles.
 
-### 1. Backend Setup
-Navigate to the `backend` folder:
-```bash
-cd backend
-pip install -r requirements.txt
-```
+## 🏗️ System Architecture
 
-Start the Server:
-```bash
-uvicorn main:app --reload
-```
-The server runs on `http://localhost:8000`.
+![Architecture](https://github.com/rayyananas0369/Talkify-AI/blob/main/SRS.md#system-design-high-level) 
+*(See SRS.md for detailed diagram)*
 
-### 2. Frontend Setup
-Navigate to the `frontend` folder:
-```bash
-cd frontend
-npm install
-```
+## 👥 Project Team
 
-Start the Client:
-```bash
-npm run dev
-```
-Open `http://localhost:5173` in your browser.
+- **Rayyan**: Backend Development & Integration
+- **Ardra**: UI/UX Design & Frontend Implementation
+- **Angel**: API Design & Frontend Communication
+- **Nithya**: AI Models (Lip Reading & Sign Recognition)
 
-## Training Models
-Since this is a fresh setup, the models are untrained (mocked). To train them:
-1. Prepare your dataset (images for Signs, video sequences for Lips).
-2. Edit `train.py` to point to your data.
-3. Run:
+## 📂 Documentation
+
+- [**SRS.md**](SRS.md): Software Requirement Specifications
+- [**TEAM.md**](TEAM.md): Team Roles and Responsibilities
+- [**PLAN.md**](PLAN.md): Project Roadmap and Tasks
+- [**TRAINING_GUIDE.md**](TRAINING_GUIDE.md): Instruction for dataset training
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Python 3.10+
+- Node.js 18+
+- Webcam
+
+### Installation
+1. **Clone the Repo**
    ```bash
-   python train.py --model sign
-   # or
-   python train.py --model lip
+   git clone https://github.com/rayyananas0369/Talkify-AI.git
+   cd Talkify-AI
    ```
 
-## Features
-- **Real-time Video Feed**: Low latency streaming.
-- **Accessibility**: High contrast dark mode.
-- **Dual Mode**: Support for both manual gestures and lip reading (architecture ready).
+2. **Backend Setup**
+   ```bash
+   pip install -r backend/requirements.txt
+   python backend/main.py
+   ```
+
+3. **Frontend Setup**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+---
+*Empowering individuals through AI. Talkify AI © 2026.*
