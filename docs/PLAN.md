@@ -1,43 +1,51 @@
-# Project Plan & Task Division: Talkify AI
+# Talkify AI: Project Roadmap & Task Division
 
-## Phase 1: Setup 🏗️
-- [x] Initialize Project Structure
-- [x] Configure Environment (FastAPI + React)
-- [x] Research & Select Core AI Libraries (MediaPipe, YOLOv8)
-- [ ] Create GitHub repository & Invite Collaborators
+This document outlines the phased development of Talkify AI, aligning with the modular architecture and team roles.
 
-## Phase 2: Individual Work 💻
+---
 
-### Ardra (UI/UX)
-- [x] Design responsive layouts (Camera + Output cards)
-- [x] Implement Mode Toggle (Lip Reading / Sign Language)
-- [x] Handle Camera API & Permissions
-- [x] Refine CSS for Premium Look & Minimal Footer
+## 📅 Roadmap Overview
 
-### Rayyan & Angel (Backend)
-- [x] Setup FastAPI Backend Architecture
-- [x] Develop Real-time API Endpoints (`/predict/sign`, `/predict/lip`)
-- [x] Implement Frame Processing & Sequence Buffering
-- [x] Integrate Hybrid Landmark Extraction Logic
+### Phase 1: Foundation & UI (Module 1) 🏗️
+- [x] Initial Project Structure
+- [x] Indigo-themed Dashboard Design
+- [x] Mode Toggle (Sign / Lip Reading)
+- [x] Modular Architecture (FastAPI + React splitting)
+- [x] Deployment to GitHub
 
-### Nithya (AI Models)
-- [x] Preprocess Data (Lip Reading & Sign Language)
-- [x] Implement YOLOv8 for Hand/Face Detection
-- [x] Design CNN+LSTM Architectures for Temporal Understanding
-- [ ] Finalize Bengali + English Lip Reading Datasets
+### Phase 2: Real-time Preprocessing (Module 2) 🎯
+- [ ] Implement ROI (Region of Interest) extraction for lips and hands.
+- [ ] Develop `preprocessing/video_to_sequence.py` for 15-frame buffering.
+- [ ] Standardize landmark normalization across different camera resolutions.
+- [ ] Finalize `OverlayToggle` logic for high-detail skeletal visualization.
 
-## Phase 3: Integration 🔄
-- [x] Connect Frontend React to Backend FastAPI
-- [x] Synchronize Real-time Streaming & Inference
-- [x] Implement Visual Guides (Landmarks/Skeletons) Toggle
-- [x] End-to-End Testing of Communication Flow
+### Phase 3: Sign Language Engine (Module 3) ✋
+- [ ] Integrate YOLOv8 hand detector.
+- [ ] Process MediaPipe landmarks into 63-feature vectors.
+- [ ] Model inference for ASL Alphabet and Numbers.
+- [ ] Optimization for real-time performance on CPU.
 
-## Phase 4: Documentation & Finalization 📝
-- [/] Prepare SRS.md (Requirements & Design)
-- [/] Finalize README.md & User Manual
-- [ ] GitHub Deployment & Push
+### Phase 4: Lip Reading Engine (Module 4) 👄
+- [ ] Mouth ROI extraction using 468-point FaceMesh.
+- [ ] Implement CNN-LSTM architecture for word recognition.
+- [ ] Support for Bengali + English visual speech patterns.
+- [ ] Temporal smoothing of textual output.
 
-## Future Enhancements 🚀
-- Multi-language Sign Language support.
-- Mobile App Version (React Native).
-- Offline Model Execution for remote areas.
+### Phase 5: Polish & Deployment 🚀
+- [ ] End-to-end latency testing.
+- [ ] Final Documentation (User Guide & API Docs).
+- [ ] Public Release / Final Presentation.
+
+---
+
+## 👥 Team Responsibilities
+
+| Member | Primary Focus | Active Module |
+| :--- | :--- | :--- |
+| **Ardra** | UI/UX & React Components | Module 1 |
+| **Rayyan** | Backend Core & Preprocessing | Module 2 |
+| **Nithya** | AI Model Training | Module 3 & 4 |
+| **Angel** | API Design & Integration | Module 5 |
+
+---
+*Talkify AI © 2026*
