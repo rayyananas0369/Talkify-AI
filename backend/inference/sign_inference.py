@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
 from tensorflow.keras.models import load_model
-from config import SIGN_MODEL_PATH, SIGN_CLASSES, SEQUENCE_LENGTH
-from hand_tracking.mediapipe_hand import HandTracker
-from hand_tracking.yolov8_detector import YOLOHandDetector
-from preprocessing.hand_keypoints import extract_hand_landmarks, landmarks_to_list
+from backend.config import SIGN_MODEL_PATH, SIGN_CLASSES, SEQUENCE_LENGTH
+from backend.hand_tracking.mediapipe_hand import HandTracker
+from backend.hand_tracking.yolov8_detector import YOLOHandDetector
+from backend.preprocessing.hand_keypoints import extract_hand_landmarks, landmarks_to_list
 
 class SignInference:
     def __init__(self):
@@ -20,32 +20,41 @@ class SignInference:
 
     def predict(self, frame):
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # 1. Hand Tracking (YOLO + MediaPipe)
         mp_results = self.hand_tracker.process(image_rgb)
-        landmarks = extract_hand_landmarks(mp_results)
         hand_rect = self.yolo_detector.detect(frame)
+        
+        # 2. Extract & Normalize Landmarks (Module 2)
+        landmarks = extract_hand_landmarks(mp_results)
 
         if not landmarks:
+            # If no hand, clear buffer (optional, depends on UX preference)
+            # self.buffer = [] 
             return "...", 0.0, [], hand_rect
 
-        # Heuristic Logic (copied from original inference.py for continuity)
-        label, conf = self.get_heuristic_gesture(landmarks)
-        
-        # Buffer management for future model usage
+        # 3. Buffer Management (Module 2)
         feat = landmarks_to_list(landmarks)
         self.buffer.append(feat)
         if len(self.buffer) > SEQUENCE_LENGTH:
             self.buffer.pop(0)
 
-        # In real scenario: model.predict(self.buffer)
-        return label, conf, landmarks, hand_rect
-
-    def get_heuristic_gesture(self, landmarks):
-        def dist(i, j):
-            return np.sqrt((landmarks[i]['x'] - landmarks[j]['x'])**2 + 
-                           (landmarks[i]['y'] - landmarks[j]['y'])**2)
+        # 4. Prediction (Module 3)
+        if self.model and len(self.buffer) == SEQUENCE_LENGTH:
+            # Format: (1, 15, 63)
+            input_data = np.expand_dims(np.array(self.buffer), axis=0)
+            
+            # Predict
+            prob = self.model.predict(input_data, verbose=0)[0]
+            max_idx = np.argmax(prob)
+            confidence = float(prob[max_idx])
+            
+            # Thresholding
+            if confidence > 0.85:
+                label = SIGN_CLASSES[max_idx]
+                return label, confidence, landmarks, hand_rect
+            else:
+                return "...", confidence, landmarks, hand_rect
         
-        if dist(0, 8) > 0.4 and dist(0, 12) > 0.4 and dist(0, 16) > 0.4:
-            return "B (Flat Hand)", 0.6
-        if dist(0, 8) < 0.2 and dist(0, 12) < 0.2 and dist(0, 16) < 0.2:
-            return "A (Fist)", 0.6
-        return "Analyzing...", 0.1
+        # Fallback if model shouldn't run yet or isn't loaded
+        return "Buffering...", 0.0, landmarks, hand_rect

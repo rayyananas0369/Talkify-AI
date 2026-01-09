@@ -6,7 +6,7 @@
 
 ### 1.1 Purpose
 The purpose of this project is to build an AI-powered communication bridge for hearing and speech impaired users. It supports two primary modes:
-1. **Lip Reading**: Real-time conversion of lip movements (Bengali + English) into text.
+1. **Lip Reading**: Real-time conversion of lip movements (English) into text.
 2. **Sign Language Recognition**: Translation of hand gestures (English ASL) into written text.
 
 ### 1.2 Scope
@@ -41,7 +41,7 @@ Talkify AI operates as a client-server architecture. The Frontend (React) captur
 ### 3.1 Functional Requirements
 1. **Camera Permission**: Request and manage secure webcam access.
 2. **Real-time Recognition**: Continuous prediction loop for gestures and lip movements.
-3. **Dual Language Support**: Lip reading recognition for both English and Bengali.
+3. **English Support**: Lip reading and sign recognition for the English language.
 4. **Visual Guide Toggle**: Enable/Disable landmark overlays in the camera feed.
 5. **Text Management**: "Copy Text" and "Clear Text" functionality for the recognition output.
 

@@ -28,7 +28,7 @@ This document outlines the phased development of Talkify AI, aligning with the m
 ### Phase 4: Lip Reading Engine (Module 4) 👄
 - [ ] Mouth ROI extraction using 468-point FaceMesh.
 - [ ] Implement CNN-LSTM architecture for word recognition.
-- [ ] Support for Bengali + English visual speech patterns.
+- [ ] Optimized support for English visual speech patterns.
 - [ ] Temporal smoothing of textual output.
 
 ### Phase 5: Polish & Deployment 🚀

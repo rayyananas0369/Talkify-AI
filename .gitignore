@@ -28,4 +28,3 @@ logs/
 temp/
 .DS_Store
 frontend/test.txt
-frontend/tailwind.config.js

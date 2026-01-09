@@ -2,6 +2,9 @@
 
 Talkify AI is designed as a modular, multimodal AI system. The core philosophy is to use **hybrid computer vision** (Keypoints + ROI detection) and **temporal deep learning** (LSTM) to translate human movement into language in real-time.
 
+> [!TIP]
+> **New to the project?** Check out our [**FRIENDLY_GUIDE.md**](FRIENDLY_GUIDE.md) for simple explanations and commented code logic for your team!
+
 ---
 
 ## 🏗️ Core Architecture Overview
@@ -41,13 +44,13 @@ Talkify AI is designed as a modular, multimodal AI system. The core philosophy i
     3. **Classification**: Pass the 15-frame sequence (21 pts * 3 coords = 63 values per frame) to a trained LSTM model.
 - **Targets**: ASL Alphabet (A-Z), Digits (0-9), and common words (Wait, Help).
 
-### Module 4: Lip Reading Recognition (Bengali + English)
+### Module 4: Lip Reading Recognition (English)
 *The focus is on visual speech recognition.*
 - **Logic**:
     1. **Mouth ROI**: Use FaceMesh to crop a tight box around the lips.
     2. **Landmarking**: Track 21 points on the lip inner/outer contours.
     3. **Contextual LSTM**: Analyze the specific shape changes in the mouth over 15 frames.
-- **Languages**: Specialized datasets for Bengali vowel/consonant shapes and English standard words.
+- **Support**: Optimized English standard words.
 
 ### Module 5: Integration & Finalization
 *The focus is on performance and usability.*
@@ -55,9 +58,63 @@ Talkify AI is designed as a modular, multimodal AI system. The core philosophy i
 - **Stability**: Implement error handling for low-light or occluded camera conditions.
 - **Final Packaging**: Finalize the user guide and perform an end-to-end demo.
 
+## 📊 Dataset Sources & Placement
+
+To train the models for Talkify AI, you need high-quality datasets. Here is where to find them and where to put them.
+
+### 1. Sign Language (English ASL)
+- **Alphabets & Numbers**: [Kaggle ASL Alphabet](https://www.kaggle.com/datasets/grassknoted/asl-alphabet).
+- **Daily Words**: [WLASL GitHub Repo](https://github.com/dxli/WLASL). Use the "Google Drive" links found in their README.
+- **Extraction Path**: 
+    - Alphabets go to: `backend/data/sign_language/alphabet/`
+    - Words go to: `backend/data/sign_language/words/`
+
+### 2. Lip Reading (English)
+- **Standard Words**: [GeneFace Mirror (LRS3)](https://github.com/yerfor/GeneFace). The official Oxford link is down; use the Google Drive links provided by this project.
+- **Extraction Path**: `backend/data/lip_reading/`
+
 ---
 
-## 📝 Key Modifications for your Team
+## 🗺️ The Dataset Extraction Map
+
+When you download the `.zip` files, extract them so they follow this exact structure:
+
+```text
+Talkify_AI/
+└── backend/
+    └── data/
+        ├── sign_language/
+        │   ├── alphabet/       <-- Put A-Z folders here
+        │   └── words/          <-- Put word video files here
+        └── lip_reading/        <-- Put lip video folders here
+```
+
+---
+
+## 📥 Manual vs. Automatic Download
+
+Instead of manual downloading, use a Python script with `kagglehub` and `gdown`:
+
+```python
+# backend/utils/download_dataset.py
+import kagglehub
+import os
+
+def download_asl_dataset():
+    path = kagglehub.dataset_download("grassknoted/asl-alphabet")
+    print(f"ASL Dataset downloaded to: {path}")
+
+def download_lip_dataset(url, target):
+    # Use gdown for Google Drive links or requests for direct links
+    import requests
+    response = requests.get(url)
+    with open(target, 'wb') as f:
+        f.write(response.content)
+```
+
+---
+
+## 🎯 Module 2 Implementation: Preprocessing Logic
 
 ### To Add:
 - **Logging System**: Implement `utils/logger.py` to track model confidence scores in real-time.

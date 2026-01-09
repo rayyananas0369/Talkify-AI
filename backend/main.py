@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import io
 from PIL import Image
-import inference
+from backend.inference import sign_inference, lip_inference
 
 app = FastAPI()
 
@@ -23,7 +23,7 @@ async def predict_sign(file: UploadFile = File(...)):
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
-    label, confidence, landmarks, hand_rect = inference.predict_sign(frame)
+    label, confidence, landmarks, hand_rect = sign_inference.predict_sign(frame)
     
     return {
         "text": label,
@@ -38,7 +38,7 @@ async def predict_lip(file: UploadFile = File(...)):
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
-    label, confidence, landmarks = inference.predict_lip(frame)
+    label, confidence, landmarks = lip_inference.predict_lip(frame)
     
     return {
         "text": label,

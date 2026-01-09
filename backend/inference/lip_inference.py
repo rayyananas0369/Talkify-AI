@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
 from tensorflow.keras.models import load_model
-from config import LIP_MODEL_PATH, LIP_CLASSES, SEQUENCE_LENGTH
-from lip_tracking.mediapipe_face import FaceTracker
-from preprocessing.lip_keypoints import extract_lip_landmarks
-from preprocessing.hand_keypoints import landmarks_to_list
+from backend.config import LIP_MODEL_PATH, LIP_CLASSES, SEQUENCE_LENGTH
+from backend.lip_tracking.mediapipe_face import FaceTracker
+from backend.preprocessing.lip_keypoints import extract_lip_landmarks
+from backend.preprocessing.hand_keypoints import landmarks_to_list
 
 class LipInference:
     def __init__(self):
