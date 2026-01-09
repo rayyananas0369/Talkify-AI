@@ -77,7 +77,7 @@ export default function CameraFeed({ mode, setOutputText }) {
                 } catch (err) {
                     console.error("Backend error:", err);
                 }
-            }, 2000);
+            }, 200);
 
             videoRef.current.intervalId = interval;
         } catch (err) {
@@ -122,8 +122,8 @@ export default function CameraFeed({ mode, setOutputText }) {
                     <button
                         onClick={() => setShowGuides(!showGuides)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${showGuides
-                                ? "bg-indigo-100 text-indigo-700"
-                                : "bg-slate-100 text-slate-500"
+                            ? "bg-indigo-100 text-indigo-700"
+                            : "bg-slate-100 text-slate-500"
                             }`}
                         title={showGuides ? "Hide Visual Guides" : "Show Visual Guides"}
                     >

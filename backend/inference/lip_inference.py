@@ -34,6 +34,13 @@ class LipInference:
             input_data = np.expand_dims(np.array(self.buffer), axis=0)
             predictions = self.model.predict(input_data, verbose=0)
             class_idx = np.argmax(predictions)
-            return LIP_CLASSES[class_idx], float(np.max(predictions)), landmarks
+            confidence = float(np.max(predictions))
             
-        return "...", 0.0, landmarks
+            print(f"DEBUG LIP: Prob={confidence:.2f}, Buffer={len(self.buffer)}")
+            
+            if confidence > 0.5:
+                return LIP_CLASSES[class_idx], confidence, landmarks
+            else:
+                return "Low Confidence...", confidence, landmarks
+            
+        return f"Buffering ({len(self.buffer)}/15)...", 0.0, landmarks

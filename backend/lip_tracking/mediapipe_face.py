@@ -1,6 +1,6 @@
 import mediapipe as mp
-import mediapipe.solutions.face_mesh as mp_face_mesh
-from config import FACE_CONFIDENCE, MAX_FACES
+import mediapipe.python.solutions.face_mesh as mp_face_mesh
+from backend.config import FACE_CONFIDENCE, MAX_FACES
 
 class FaceTracker:
     def __init__(self):

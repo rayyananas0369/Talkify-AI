@@ -5,7 +5,7 @@ except ImportError:
     print("ultralytics not installed.")
     YOLO = None
 
-from config import YOLO_MODEL_PATH
+from backend.config import YOLO_MODEL_PATH
 
 class YOLOHandDetector:
     def __init__(self):

@@ -1,6 +1,6 @@
 import mediapipe as mp
-import mediapipe.solutions.hands as mp_hands
-from config import HAND_CONFIDENCE, MAX_HANDS
+import mediapipe.python.solutions.hands as mp_hands
+from backend.config import HAND_CONFIDENCE, MAX_HANDS
 
 class HandTracker:
     def __init__(self):
