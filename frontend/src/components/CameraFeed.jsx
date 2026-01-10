@@ -29,10 +29,11 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
     };
 
     useEffect(() => {
+        let isMounted = true;
         if (!stream || !isProcessing) return;
 
         const interval = setInterval(async () => {
-            if (!videoRef.current) return;
+            if (!videoRef.current || !isMounted) return;
 
             const canvas = document.createElement("canvas");
             canvas.width = videoRef.current.videoWidth;
@@ -44,14 +45,19 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
             const formData = new FormData();
             formData.append("file", blob, "frame.jpg");
 
+            // capture the current mode for this request in closure to prevent mixing
+            const currentMode = mode;
             const url =
-                mode === "lip"
+                currentMode === "lip"
                     ? "http://localhost:8000/predict/lip"
                     : "http://localhost:8000/predict/sign";
 
             try {
                 const res = await fetch(url, { method: "POST", body: formData });
+                if (!isMounted) return;
+
                 const data = await res.json();
+                if (!isMounted) return;
 
                 if (setStatus) setStatus(data.status);
 
@@ -69,11 +75,16 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
                     canvasRef.current.height = videoRef.current.videoHeight;
                     overlayCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
+                    // Strict check: Only draw if guides are ON AND the response matches the ACTIVE mode
+                    // We check currentMode (request scope) against mode (component state)? 
+                    // No, reliance on component state 'mode' is risky if it changed. 
+                    // But 'isMounted' handles the cleanup of the EFFECT, so we know 'mode' in this effect scope IS the active mode.
+
                     if (showGuides) {
                         const width = canvasRef.current.width;
                         const height = canvasRef.current.height;
 
-                        if (data.hand_rect) {
+                        if (currentMode === 'sign' && data.hand_rect) {
                             const [x1, y1, x2, y2] = data.hand_rect;
                             overlayCtx.strokeStyle = "#4f46e5";
                             overlayCtx.lineWidth = 3;
@@ -85,7 +96,7 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
                             overlayCtx.fillText("HAND", x1 + 5, y1 - 8);
                         }
 
-                        if (mode === 'sign' && data.landmarks && data.landmarks.length > 0) {
+                        if (currentMode === 'sign' && data.landmarks && data.landmarks.length > 0) {
                             overlayCtx.fillStyle = "#10b981";
                             overlayCtx.strokeStyle = "#10b981";
                             overlayCtx.lineWidth = 2;
@@ -107,7 +118,7 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
                             });
                         }
 
-                        if (mode === 'lip' && data.landmarks && data.landmarks.length > 0) {
+                        if (currentMode === 'lip' && data.landmarks && data.landmarks.length > 0) {
                             overlayCtx.fillStyle = "#ec4899";
                             data.landmarks.forEach(lm => {
                                 overlayCtx.beginPath();
@@ -120,9 +131,17 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
             } catch (err) {
                 console.error("Backend error:", err);
             }
-        }, 100);
+        }, 50); // Increased to 20 FPS for smoother tracking
 
-        return () => clearInterval(interval);
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+            // Clear canvas ONCE when unmounting/switching modes
+            if (canvasRef.current) {
+                const ctx = canvasRef.current.getContext('2d');
+                ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+            }
+        };
     }, [stream, isProcessing, mode, showGuides, setOutputText, setStatus]);
 
     const handleDeny = () => {
