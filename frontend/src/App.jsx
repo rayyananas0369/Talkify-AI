@@ -7,6 +7,7 @@ import Features from "./components/Features";
 function App() {
   const [mode, setMode] = useState("lip");
   const [output, setOutput] = useState("");
+  const [status, setStatus] = useState("System Ready");
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-['Outfit']">
@@ -47,12 +48,12 @@ function App() {
 
         {/* Camera Feed Column */}
         <div className="flex flex-col gap-4">
-          <CameraFeed mode={mode} setOutputText={setOutput} />
+          <CameraFeed mode={mode} setOutputText={setOutput} setStatus={setStatus} status={status} />
         </div>
 
         {/* Output Column */}
         <div className="flex flex-col gap-4">
-          <OutputBox text={output} />
+          <OutputBox text={output} onClear={() => setOutput("")} />
         </div>
 
       </main>

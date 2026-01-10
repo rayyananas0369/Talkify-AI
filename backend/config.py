@@ -10,8 +10,8 @@ YOLO_MODEL_PATH = "yolo11n.pt"
 
 # Constants
 SEQUENCE_LENGTH = 15
-SIGN_CLASSES = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-LIP_CLASSES = ["hello", "thank you", "yes", "no", "help", "please", "sorry", "goodbye", "welcome", "water"]
+SIGN_CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_']
+LIP_CLASSES = ["blue", "green", "red", "white"]
 
 # Vision Config
 HAND_CONFIDENCE = 0.5

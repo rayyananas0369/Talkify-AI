@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { Camera, StopCircle, RefreshCw, ShieldCheck, VideoOff, Eye, EyeOff } from "lucide-react";
 
-export default function CameraFeed({ mode, setOutputText }) {
+export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const [stream, setStream] = useState(null);
@@ -22,70 +22,108 @@ export default function CameraFeed({ mode, setOutputText }) {
             }
             setStream(mediaStream);
             setIsProcessing(true);
-
-            const interval = setInterval(async () => {
-                if (!videoRef.current) return;
-
-                const canvas = document.createElement("canvas");
-                canvas.width = videoRef.current.videoWidth;
-                canvas.height = videoRef.current.videoHeight;
-                const ctx = canvas.getContext("2d");
-                ctx.drawImage(videoRef.current, 0, 0);
-
-                const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg"));
-                const formData = new FormData();
-                formData.append("file", blob, "frame.jpg");
-
-                const url =
-                    mode === "lip"
-                        ? "http://localhost:8000/predict/lip"
-                        : "http://localhost:8000/predict/sign";
-
-                try {
-                    const res = await fetch(url, { method: "POST", body: formData });
-                    const data = await res.json();
-                    setOutputText(data.text);
-
-                    // Visual Guides / Tracking Overlay
-                    if (canvasRef.current && videoRef.current) {
-                        const overlayCtx = canvasRef.current.getContext('2d');
-                        // Match dimensions
-                        canvasRef.current.width = videoRef.current.videoWidth;
-                        canvasRef.current.height = videoRef.current.videoHeight;
-
-                        overlayCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-
-                        if (showGuides && data.hand_rect) {
-                            const [x1, y1, x2, y2] = data.hand_rect;
-
-                            // Draw Bounding Box
-                            overlayCtx.strokeStyle = "#4f46e5"; // Indigo-600
-                            overlayCtx.lineWidth = 4;
-                            overlayCtx.beginPath();
-                            overlayCtx.rect(x1, y1, x2 - x1, y2 - y1);
-                            overlayCtx.stroke();
-
-                            // Draw Label
-                            overlayCtx.fillStyle = "#4f46e5";
-                            overlayCtx.fillRect(x1, y1 - 30, x2 - x1, 30);
-                            overlayCtx.fillStyle = "#ffffff";
-                            overlayCtx.font = "bold 16px sans-serif";
-                            overlayCtx.fillText("Tracking", x1 + 8, y1 - 8);
-                        }
-                    }
-
-                } catch (err) {
-                    console.error("Backend error:", err);
-                }
-            }, 200);
-
-            videoRef.current.intervalId = interval;
         } catch (err) {
             console.error("Camera access denied", err);
         }
-
         setShowPopup(false);
     };
+
+    useEffect(() => {
+        if (!stream || !isProcessing) return;
+
+        const interval = setInterval(async () => {
+            if (!videoRef.current) return;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(videoRef.current, 0, 0);
+
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg"));
+            const formData = new FormData();
+            formData.append("file", blob, "frame.jpg");
+
+            const url =
+                mode === "lip"
+                    ? "http://localhost:8000/predict/lip"
+                    : "http://localhost:8000/predict/sign";
+
+            try {
+                const res = await fetch(url, { method: "POST", body: formData });
+                const data = await res.json();
+
+                if (setStatus) setStatus(data.status);
+
+                if (data.text) {
+                    setOutputText(prev => {
+                        const baseText = prev === "Waiting for recognition..." ? "" : prev;
+                        if (baseText.endsWith(data.text)) return prev;
+                        return baseText + data.text;
+                    });
+                }
+
+                if (canvasRef.current && videoRef.current) {
+                    const overlayCtx = canvasRef.current.getContext('2d');
+                    canvasRef.current.width = videoRef.current.videoWidth;
+                    canvasRef.current.height = videoRef.current.videoHeight;
+                    overlayCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+                    if (showGuides) {
+                        const width = canvasRef.current.width;
+                        const height = canvasRef.current.height;
+
+                        if (data.hand_rect) {
+                            const [x1, y1, x2, y2] = data.hand_rect;
+                            overlayCtx.strokeStyle = "#4f46e5";
+                            overlayCtx.lineWidth = 3;
+                            overlayCtx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                            overlayCtx.fillStyle = "#4f46e5";
+                            overlayCtx.fillRect(x1, y1 - 25, 80, 25);
+                            overlayCtx.fillStyle = "#ffffff";
+                            overlayCtx.font = "bold 14px sans-serif";
+                            overlayCtx.fillText("HAND", x1 + 5, y1 - 8);
+                        }
+
+                        if (mode === 'sign' && data.landmarks && data.landmarks.length > 0) {
+                            overlayCtx.fillStyle = "#10b981";
+                            overlayCtx.strokeStyle = "#10b981";
+                            overlayCtx.lineWidth = 2;
+                            const connections = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [5, 9], [9, 10], [10, 11], [11, 12], [9, 13], [13, 14], [14, 15], [15, 16], [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]];
+                            connections.forEach(([i, j]) => {
+                                const lm1 = data.landmarks[i];
+                                const lm2 = data.landmarks[j];
+                                if (lm1 && lm2) {
+                                    overlayCtx.beginPath();
+                                    overlayCtx.moveTo(lm1.x * width, lm1.y * height);
+                                    overlayCtx.lineTo(lm2.x * width, lm2.y * height);
+                                    overlayCtx.stroke();
+                                }
+                            });
+                            data.landmarks.forEach(lm => {
+                                overlayCtx.beginPath();
+                                overlayCtx.arc(lm.x * width, lm.y * height, 4, 0, 2 * Math.PI);
+                                overlayCtx.fill();
+                            });
+                        }
+
+                        if (mode === 'lip' && data.landmarks && data.landmarks.length > 0) {
+                            overlayCtx.fillStyle = "#ec4899";
+                            data.landmarks.forEach(lm => {
+                                overlayCtx.beginPath();
+                                overlayCtx.arc(lm.x * width, lm.y * height, 2, 0, 2 * Math.PI);
+                                overlayCtx.fill();
+                            });
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Backend error:", err);
+            }
+        }, 100);
+
+        return () => clearInterval(interval);
+    }, [stream, isProcessing, mode, showGuides, setOutputText, setStatus]);
 
     const handleDeny = () => {
         setShowPopup(false);
@@ -161,6 +199,16 @@ export default function CameraFeed({ mode, setOutputText }) {
                     ref={canvasRef}
                     className={`absolute inset-0 w-full h-full pointer-events-none transform -scale-x-100 ${!stream ? 'hidden' : ''}`}
                 />
+
+                {/* Status Indicator Overlay */}
+                {stream && (
+                    <div className="absolute top-4 left-4 z-10">
+                        <div className="bg-slate-900/80 backdrop-blur-md text-white px-3 py-1.5 rounded-full border border-slate-700/50 flex items-center gap-2 shadow-xl animate-in fade-in slide-in-from-left-2">
+                            <div className={`w-2 h-2 rounded-full ${status?.includes('Ready') ? 'bg-green-500' : 'bg-amber-500 animate-pulse'}`} />
+                            <span className="text-xs font-bold tracking-tight uppercase">{status || "Initializing..."}</span>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Controls */}

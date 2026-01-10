@@ -8,7 +8,7 @@ from backend.hand_tracking.yolov8_detector import YOLOHandDetector
 
 IMG_SIZE = 64
 GRID_SIZE = 8
-FEATURE_DIM = 128
+FEATURE_DIM = 63
 
 class SignInference:
     def __init__(self):
@@ -52,41 +52,51 @@ class SignInference:
 
     def predict(self, frame):
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        landmarks = [] # Initialize to avoid NameError
         
-        # 1. Hand Tracking (YOLO)
+        # 1. Detection (YOLOv8)
         hand_rect = self.yolo_detector.detect(frame)
         
-        # 2. Extract Features (Grid Mean/Std as in train_sign.py)
-        feat = self.extract_grid_features(frame, hand_rect)
+        if hand_rect is None:
+            self.buffer = [] # Clear buffer on tracking loss
+            return "", f"Finding Hand... (0/{SEQUENCE_LENGTH})", [], None
 
-        if feat is None:
-            # Notify finding hand state
-            return f"Finding Hand... ({len(self.buffer)}/15)", 0.0, landmarks, hand_rect
+        # 2. Extract Landmarks (MediaPipe) - Precise 3D Skeleton
+        # Note: MediaPipe process() takes the whole image, but we can verify it's within the YOLO box
+        mp_res = self.hand_tracker.process(image_rgb)
+        
+        if not mp_res.multi_hand_landmarks:
+            return "", f"Analyzing Fingers... ({len(self.buffer)}/{SEQUENCE_LENGTH})", [], hand_rect
+
+        # Import landmarks_to_list and extract_hand_landmarks
+        from backend.preprocessing.hand_keypoints import landmarks_to_list, extract_hand_landmarks
+        mp_norm_lms = extract_hand_landmarks(mp_res)
+        
+        if not mp_norm_lms:
+            return "", f"Analyzing Fingers... ({len(self.buffer)}/{SEQUENCE_LENGTH})", [], hand_rect
+
+        feat = landmarks_to_list(mp_norm_lms)
+        # Convert NormalizedLandmark objects to dicts for JSON serialization
+        raw_lms = mp_res.multi_hand_landmarks[0].landmark
+        landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in raw_lms]
 
         # 3. Buffer Management
         self.buffer.append(feat)
         if len(self.buffer) > SEQUENCE_LENGTH:
             self.buffer.pop(0)
 
-        # 4. Prediction
+        # 4. Hybrid Prediction
         if self.model and len(self.buffer) == SEQUENCE_LENGTH:
-            # Format: (1, 15, 128)
             input_data = np.expand_dims(np.array(self.buffer), axis=0)
-            
-            # Predict
             prob = self.model.predict(input_data, verbose=0)[0]
             max_idx = np.argmax(prob)
             confidence = float(prob[max_idx])
             
-            print(f"DEBUG: Prob={confidence:.2f}, Buffer={len(self.buffer)}")
+            print(f"DEBUG SIGN: Prob={confidence:.2f}, Buffer={len(self.buffer)}")
             
-            # Thresholding
-            if confidence > 0.5: # Lowered from 0.85
+            if confidence > 0.4: # Slightly lower threshold for responsiveness
                 label = SIGN_CLASSES[max_idx]
-                return label, confidence, landmarks, hand_rect
+                return label, "System Ready", landmarks, hand_rect
             else:
-                return "Low Confidence...", confidence, landmarks, hand_rect
+                return "", f"Low Confidence ({confidence:.2f}: {SIGN_CLASSES[max_idx]})", landmarks, hand_rect
         
-        # Fallback if model shouldn't run yet or isn't loaded
-        return f"Buffering ({len(self.buffer)}/15)...", 0.0, landmarks, hand_rect
+        return "", f"Buffering ({len(self.buffer)}/{SEQUENCE_LENGTH})...", landmarks, hand_rect

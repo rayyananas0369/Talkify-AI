@@ -1,7 +1,7 @@
 import { Copy, Trash2, Check, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
-export default function OutputBox({ text }) {
+export default function OutputBox({ text, onClear }) {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = () => {
@@ -43,8 +43,8 @@ export default function OutputBox({ text }) {
                     onClick={handleCopy}
                     disabled={!text}
                     className={`flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-bold shadow-md transition-all text-white ${!text
-                            ? "bg-slate-300 cursor-not-allowed"
-                            : "bg-green-500 hover:bg-green-600 hover:scale-105"
+                        ? "bg-slate-300 cursor-not-allowed"
+                        : "bg-green-500 hover:bg-green-600 hover:scale-105"
                         }`}
                 >
                     {copied ? <Check className="w-4 h-4" /> : null}
@@ -53,11 +53,12 @@ export default function OutputBox({ text }) {
                 <button
                     disabled={!text}
                     className={`flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-bold shadow-md transition-all text-white ${!text
-                            ? "bg-slate-300 cursor-not-allowed"
-                            : "bg-red-500 hover:bg-red-600 hover:scale-105"
+                        ? "bg-slate-300 cursor-not-allowed"
+                        : "bg-red-500 hover:bg-red-600 hover:scale-105"
                         }`}
-                    onClick={() => { /* In a real app we'd lift this state up or pass a clearer function */ }}
+                    onClick={onClear}
                 >
+                    <Trash2 className="w-4 h-4" />
                     Clear Text
                 </button>
             </div>

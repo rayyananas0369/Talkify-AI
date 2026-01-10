@@ -14,11 +14,11 @@ async def predict_sign(file: UploadFile = File(...)):
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
-    label, confidence, landmarks, hand_rect = sign_engine.predict(frame)
+    label, status, landmarks, hand_rect = sign_engine.predict(frame)
     
     return {
         "text": label,
-        "confidence": confidence,
+        "status": status,
         "landmarks": landmarks,
         "hand_rect": hand_rect
     }
@@ -29,10 +29,10 @@ async def predict_lip(file: UploadFile = File(...)):
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
-    label, confidence, landmarks = lip_engine.predict(frame)
+    label, status, landmarks = lip_engine.predict(frame)
     
     return {
         "text": label,
-        "confidence": confidence,
+        "status": status,
         "landmarks": landmarks
     }

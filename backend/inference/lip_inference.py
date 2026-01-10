@@ -17,19 +17,36 @@ class LipInference:
             self.model = None
             print("Lip model not found. Using dummy predictions.")
 
+    def get_mouth_crop(self, frame, landmarks, padding=10):
+        h, w = frame.shape[:2]
+        xs = [int(lm.x * w) for lm in landmarks]
+        ys = [int(lm.y * h) for lm in landmarks]
+        x_min, x_max = max(0, min(xs) - padding), min(w, max(xs) + padding)
+        y_min, y_max = max(0, min(ys) - padding), min(h, max(ys) + padding)
+        mouth_roi = frame[y_min:y_max, x_min:x_max]
+        if mouth_roi.size == 0: return np.zeros((50, 100, 3), dtype=np.uint8)
+        return cv2.resize(mouth_roi, (100, 50))
+
     def predict(self, frame):
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_results = self.face_tracker.process(image_rgb)
-        landmarks = extract_lip_landmarks(mp_results)
+        
+        if not mp_results.multi_face_landmarks:
+            self.buffer = [] # Clear buffer on face loss
+            return "", f"Finding Face... (0/{SEQUENCE_LENGTH})", []
 
-        if not landmarks:
-            return "...", 0.0, []
-
-        feat = landmarks_to_list(landmarks)
-        self.buffer.append(feat)
+        # Generic lip indices
+        LIPS = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95]
+        lms_raw = [mp_results.multi_face_landmarks[0].landmark[i] for i in LIPS]
+        lms = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in lms_raw]
+        mouth_crop = self.get_mouth_crop(frame, lms_raw)
+        
+        # Buffer image features
+        self.buffer.append(mouth_crop / 255.0)
         if len(self.buffer) > SEQUENCE_LENGTH:
             self.buffer.pop(0)
 
+        # 4. Hybrid Prediction
         if self.model and len(self.buffer) == SEQUENCE_LENGTH:
             input_data = np.expand_dims(np.array(self.buffer), axis=0)
             predictions = self.model.predict(input_data, verbose=0)
@@ -38,9 +55,9 @@ class LipInference:
             
             print(f"DEBUG LIP: Prob={confidence:.2f}, Buffer={len(self.buffer)}")
             
-            if confidence > 0.5:
-                return LIP_CLASSES[class_idx], confidence, landmarks
+            if confidence > 0.4:
+                return LIP_CLASSES[class_idx], "System Ready", lms
             else:
-                return "Low Confidence...", confidence, landmarks
+                return "", f"Low Confidence ({confidence:.2f}: {LIP_CLASSES[class_idx]})", lms
             
-        return f"Buffering ({len(self.buffer)}/15)...", 0.0, landmarks
+        return "", f"Buffering ({len(self.buffer)}/{SEQUENCE_LENGTH})...", lms
