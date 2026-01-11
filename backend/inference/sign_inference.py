@@ -62,62 +62,56 @@ class SignInference:
         
         if not mp_res.multi_hand_landmarks:
             # Fallback to YOLO only for "Finding Hand" status, but don't return a box 
-            # if we aren't sure it's a hand (YOLO often confuses face for person)
             self.buffer = [] 
             self.prediction_history.clear()
-            return "", f"Finding Hand...", [], None
+            return "", "Finding Hand...", [], None
 
-        # Derive precise Hand Bounding Box from Landmarks (This fixes the 'Face vs Hand' issue)
+        # Derive precise Hand Bounding Box from Landmarks (Original stable version)
         h, w, _ = frame.shape
         lms = mp_res.multi_hand_landmarks[0].landmark
         x_coords = [lm.x * w for lm in lms]
         y_coords = [lm.y * h for lm in lms]
-        
-        # Calculate box with 20px padding
         padding = 20
         x1, x2 = int(min(x_coords) - padding), int(max(x_coords) + padding)
         y1, y2 = int(min(y_coords) - padding), int(max(y_coords) + padding)
-        
-        # Ensure box is within frame boundaries
         hand_rect = [max(0, x1), max(0, y1), min(w, x2), min(h, y2)]
 
-        # Import landmarks_to_list and extract_hand_landmarks
-        from backend.preprocessing.hand_keypoints import landmarks_to_list, extract_hand_landmarks
-        mp_norm_lms = extract_hand_landmarks(mp_res)
-        
-        if not mp_norm_lms:
-            return "", f"Analyzing Fingers... (0/{SEQUENCE_LENGTH})", [], hand_rect
+        # Determine Handedness
+        handedness = mp_res.multi_handedness[0].classification[0].label # "Left" or "Right"
 
-        feat = landmarks_to_list(mp_norm_lms)
-        # Convert NormalizedLandmark objects to dicts for JSON serialization
+        # PREPROCESSING MUST MATCH train_sign.py EXACTLY
+        from backend.preprocessing.hand_keypoints import extract_hand_landmarks, landmarks_to_list
+        norm_lms = extract_hand_landmarks(mp_res)
+        
+        # Standardize: Flip if Left hand to match Right hand training data
+        if handedness == "Left":
+            for lm in norm_lms:
+                lm['x'] = -lm['x'] # Flip relative to wrist (0,0,0)
+        
+        feat = landmarks_to_list(norm_lms)
+        
+        # Skeleton for UI
         landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in lms]
 
-        # 3. Buffer Management
-        self.buffer.append(feat)
-        if len(self.buffer) > SEQUENCE_LENGTH:
-            self.buffer.pop(0)
-
-        # 4. Static Prediction (No Buffer for Model)
-        # We still have self.buffer for legacy structure, but the model now takes single frame
-        if self.model:
-            # Reshape feat (63,) -> (1, 63)
+        # 3. Prediction
+        if self.model and len(feat) == 63:
             input_data = np.expand_dims(np.array(feat), axis=0)
             
             prob = self.model.predict(input_data, verbose=0)[0]
             max_idx = np.argmax(prob)
             confidence = float(prob[max_idx])
             
-            # Add to history for STABILITY (Smoothing over time)
-            if confidence > 0.5: # Strict confidence
+            # Use 0.40 to allow more letters to be detected
+            if confidence > 0.40: 
                 self.prediction_history.append(max_idx)
             
-            # Vote on a window of 4 frames to stop flickering
-            if len(self.prediction_history) >= 4:
+            # Vote on a window of 6 frames
+            if len(self.prediction_history) >= 6:
                 counter = collections.Counter(self.prediction_history)
-                most_common = counter.most_common(1)[0] # (index, count)
+                most_common = counter.most_common(1)[0]
                 
-                # Check if the most common prediction appears in at least 50% of history
-                if most_common[1] >= len(self.prediction_history) / 2:
+                # Require 3 out of 6 (50%) to agree
+                if most_common[1] >= 3: 
                     label = SIGN_CLASSES[most_common[0]]
                     return label, "System Ready", landmarks, hand_rect
             

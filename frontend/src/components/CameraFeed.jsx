@@ -29,6 +29,7 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
     };
 
     const lastDetectedChar = useRef("");
+    const framesHeld = useRef(0);
 
     useEffect(() => {
         let isMounted = true;
@@ -74,14 +75,22 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
                     if (charToAdd !== lastDetectedChar.current) {
                         setOutputText(prev => {
                             const baseText = prev === "Waiting for recognition..." ? "" : prev;
-                            if (baseText.endsWith(charToAdd)) return prev;
                             return baseText + charToAdd;
                         });
                         lastDetectedChar.current = charToAdd;
+                        framesHeld.current = 1;
+                    } else {
+                        // Same sign held -> Allow auto-repeat after a delay
+                        framesHeld.current += 1;
+                        if (framesHeld.current >= 25) { // Approx 1 second
+                            setOutputText(prev => prev + charToAdd);
+                            framesHeld.current = 1; // Reset counter for next repeat
+                        }
                     }
-                } else {
-                    // Hand is LOST -> Reset to allow repetition
+                } else if (data.status && data.status.includes("Finding Hand")) {
+                    // Only reset if hand is actually GONE to avoid double-typing on jitter
                     lastDetectedChar.current = "";
+                    framesHeld.current = 0;
                 }
 
                 if (canvasRef.current && videoRef.current) {
