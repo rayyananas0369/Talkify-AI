@@ -16,8 +16,42 @@ CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D',
 SEQUENCE_LENGTH = 15
 FEATURE_DIM = 63  # 21 landmarks * 3 (x, y, z)
 
+# ... imports remain ...
+
+# ... imports ...
+import math
+import random
+
+def augment_landmarks(landmarks):
+    """
+    Apply random rotation and noise to landmarks.
+    landmarks: list of 63 floats (x, y, z sequences)
+    """
+    aug_data = []
+    # Reshape to (21, 3) for easier manipulation
+    points = np.array(landmarks).reshape(-1, 3)
+    
+    # 1. Random Rotation (-15 to +15 degrees) around Z-axis (roll)
+    theta = math.radians(random.uniform(-15, 15))
+    c, s = math.cos(theta), math.sin(theta)
+    rotation_matrix = np.array(((c, -s, 0), (s, c, 0), (0, 0, 1)))
+    
+    # Center of hand (approximate using wrist at index 0 or mean)
+    center = points.mean(axis=0)
+    
+    # Rotate
+    points_centered = points - center
+    points_rotated = np.dot(points_centered, rotation_matrix)
+    points_new = points_rotated + center
+    
+    # 2. Random Noise
+    noise = np.random.normal(0, 0.005, points_new.shape) # +/- 0.5% screen width jitter
+    points_noisy = points_new + noise
+    
+    return points_noisy.flatten()
+
 def load_data():
-    # Use static_image_mode=True for training on independent files
+    # ... mp_hands setup (keep same) ...
     import mediapipe.python.solutions.hands as mp_hands
     tracker_model = mp_hands.Hands(
         static_image_mode=True,
@@ -37,9 +71,8 @@ def load_data():
         print(f"Processing class {idx+1}/{len(CLASSES)}: {cls}")
         files = [f for f in os.listdir(cls_path) if f.endswith(('.jpg', '.png'))]
         
-        current_seq = []
         count = 0
-        for f in files[:200]:  # Reduced to 200 per class for speed
+        for f in files:
             img = cv2.imread(os.path.join(cls_path, f))
             if img is None: continue
             
@@ -49,54 +82,61 @@ def load_data():
             if res.multi_hand_landmarks:
                 landmarks = extract_hand_landmarks(res)
                 feat = landmarks_to_list(landmarks)
-                current_seq.append(feat)
                 
-                if len(current_seq) == SEQUENCE_LENGTH:
-                    X.append(current_seq)
-                    y.append(idx)
-                    current_seq = []
-                    count += 1
+                # 1. Original
+                X.append(feat)
+                y.append(idx)
+                
+                # 2. Augmented Version (DISABLED due to wrist misalignment issue)
+                # feat_aug = augment_landmarks(feat)
+                # X.append(feat_aug)
+                # y.append(idx)
+                
+                count += 1
             
-        print(f"  -> Generated {count} sequences for {cls}")
+        print(f"  -> Generated {count} samples for {cls}")
                 
     print(f"\nTotal samples loaded: {len(X)}")
     return np.array(X), np.array(y)
 
 def create_model(num_classes):
     model = Sequential([
-        LSTM(64, return_sequences=True, input_shape=(SEQUENCE_LENGTH, FEATURE_DIM)),
-        Dropout(0.2),
-        LSTM(128, return_sequences=False),
+        # Increased capacity: 63 -> 256 -> 128
+        Dense(256, activation='relu', input_shape=(FEATURE_DIM,)),
+        Dropout(0.3), # Increased dropout for regulation
+        Dense(128, activation='relu'),
         Dropout(0.2),
         Dense(64, activation='relu'),
         Dense(num_classes, activation='softmax')
     ])
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     return model
+    
+# ... rest of file (main block) ...
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("ASL Alphabet Sign Language Training with MediaPipe Landmarks")
+    print("ASL Alphabet STATIC Sign Training with MediaPipe Landmarks")
     print("=" * 60)
-    
+
     # Load data
     X, y = load_data()
-    
+
     if len(X) == 0:
         print("Error: No data loaded. Please check the dataset path and ensure hands are detected.")
         exit(1)
-        
+
     # Convert labels to categorical
     y = to_categorical(y, num_classes=len(CLASSES))
-    
+
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
+
     print(f"\nDataset summary: X_train shape {X_train.shape}, y_train shape {y_train.shape}")
     print(f"Training set: {len(X_train)} samples")
     print(f"Test set: {len(X_test)} samples")
-    
-    # Build and train model
+
+    # Build model
     print("\nBuilding model...")
     model = create_model(len(CLASSES))
     model.summary()
@@ -104,7 +144,7 @@ if __name__ == "__main__":
     print("\nStarting training with MediaPipe landmarks...")
     history = model.fit(
         X_train, y_train,
-        epochs=30,
+        epochs=50,
         batch_size=32,
         validation_data=(X_test, y_test),
         verbose=1

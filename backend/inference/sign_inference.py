@@ -10,11 +10,14 @@ IMG_SIZE = 64
 GRID_SIZE = 8
 FEATURE_DIM = 63
 
+import collections
+
 class SignInference:
     def __init__(self):
         self.hand_tracker = HandTracker()
         self.yolo_detector = YOLOHandDetector()
         self.buffer = []
+        self.prediction_history = collections.deque(maxlen=7) # Store last 7 predictions for stability
         try:
             self.model = load_model(SIGN_MODEL_PATH)
             print("Sign model loaded.")
@@ -53,50 +56,71 @@ class SignInference:
     def predict(self, frame):
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
-        # 1. Detection (YOLOv8)
-        hand_rect = self.yolo_detector.detect(frame)
-        
-        if hand_rect is None:
-            self.buffer = [] # Clear buffer on tracking loss
-            return "", f"Finding Hand... (0/{SEQUENCE_LENGTH})", [], None
-
-        # 2. Extract Landmarks (MediaPipe) - Precise 3D Skeleton
-        # Note: MediaPipe process() takes the whole image, but we can verify it's within the YOLO box
+        # 1. Detection Stage
+        # We rely on MediaPipe for the most accurate Hand-only tracking
         mp_res = self.hand_tracker.process(image_rgb)
         
         if not mp_res.multi_hand_landmarks:
-            return "", f"Analyzing Fingers... ({len(self.buffer)}/{SEQUENCE_LENGTH})", [], hand_rect
+            # Fallback to YOLO only for "Finding Hand" status, but don't return a box 
+            # if we aren't sure it's a hand (YOLO often confuses face for person)
+            self.buffer = [] 
+            self.prediction_history.clear()
+            return "", f"Finding Hand...", [], None
+
+        # Derive precise Hand Bounding Box from Landmarks (This fixes the 'Face vs Hand' issue)
+        h, w, _ = frame.shape
+        lms = mp_res.multi_hand_landmarks[0].landmark
+        x_coords = [lm.x * w for lm in lms]
+        y_coords = [lm.y * h for lm in lms]
+        
+        # Calculate box with 20px padding
+        padding = 20
+        x1, x2 = int(min(x_coords) - padding), int(max(x_coords) + padding)
+        y1, y2 = int(min(y_coords) - padding), int(max(y_coords) + padding)
+        
+        # Ensure box is within frame boundaries
+        hand_rect = [max(0, x1), max(0, y1), min(w, x2), min(h, y2)]
 
         # Import landmarks_to_list and extract_hand_landmarks
         from backend.preprocessing.hand_keypoints import landmarks_to_list, extract_hand_landmarks
         mp_norm_lms = extract_hand_landmarks(mp_res)
         
         if not mp_norm_lms:
-            return "", f"Analyzing Fingers... ({len(self.buffer)}/{SEQUENCE_LENGTH})", [], hand_rect
+            return "", f"Analyzing Fingers... (0/{SEQUENCE_LENGTH})", [], hand_rect
 
         feat = landmarks_to_list(mp_norm_lms)
         # Convert NormalizedLandmark objects to dicts for JSON serialization
-        raw_lms = mp_res.multi_hand_landmarks[0].landmark
-        landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in raw_lms]
+        landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in lms]
 
         # 3. Buffer Management
         self.buffer.append(feat)
         if len(self.buffer) > SEQUENCE_LENGTH:
             self.buffer.pop(0)
 
-        # 4. Hybrid Prediction
-        if self.model and len(self.buffer) == SEQUENCE_LENGTH:
-            input_data = np.expand_dims(np.array(self.buffer), axis=0)
+        # 4. Static Prediction (No Buffer for Model)
+        # We still have self.buffer for legacy structure, but the model now takes single frame
+        if self.model:
+            # Reshape feat (63,) -> (1, 63)
+            input_data = np.expand_dims(np.array(feat), axis=0)
+            
             prob = self.model.predict(input_data, verbose=0)[0]
             max_idx = np.argmax(prob)
             confidence = float(prob[max_idx])
             
-            print(f"DEBUG SIGN: Prob={confidence:.2f}, Buffer={len(self.buffer)}")
+            # Add to history for STABILITY (Smoothing over time)
+            if confidence > 0.5: # Strict confidence
+                self.prediction_history.append(max_idx)
             
-            if confidence > 0.4: # Slightly lower threshold for responsiveness
-                label = SIGN_CLASSES[max_idx]
-                return label, "System Ready", landmarks, hand_rect
-            else:
-                return "", f"Low Confidence ({confidence:.2f}: {SIGN_CLASSES[max_idx]})", landmarks, hand_rect
+            # Vote on a window of 4 frames to stop flickering
+            if len(self.prediction_history) >= 4:
+                counter = collections.Counter(self.prediction_history)
+                most_common = counter.most_common(1)[0] # (index, count)
+                
+                # Check if the most common prediction appears in at least 50% of history
+                if most_common[1] >= len(self.prediction_history) / 2:
+                    label = SIGN_CLASSES[most_common[0]]
+                    return label, "System Ready", landmarks, hand_rect
+            
+            return "", f"Stabilizing... ({confidence:.2f})", landmarks, hand_rect
         
-        return "", f"Buffering ({len(self.buffer)}/{SEQUENCE_LENGTH})...", landmarks, hand_rect
+        return "", "Model not loaded", landmarks, hand_rect

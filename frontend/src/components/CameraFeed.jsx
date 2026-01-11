@@ -28,12 +28,20 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
         setShowPopup(false);
     };
 
+    const lastDetectedChar = useRef("");
+
     useEffect(() => {
         let isMounted = true;
-        if (!stream || !isProcessing) return;
+        let animationFrameId;
 
-        const interval = setInterval(async () => {
-            if (!videoRef.current || !isMounted) return;
+        const processFrame = async () => {
+            if (!isMounted || !isProcessing) return;
+
+            if (!videoRef.current || !stream || videoRef.current.videoWidth === 0) {
+                // Keep the loop alive even if video isn't ready
+                animationFrameId = requestAnimationFrame(processFrame);
+                return;
+            }
 
             const canvas = document.createElement("canvas");
             canvas.width = videoRef.current.videoWidth;
@@ -45,7 +53,6 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
             const formData = new FormData();
             formData.append("file", blob, "frame.jpg");
 
-            // capture the current mode for this request in closure to prevent mixing
             const currentMode = mode;
             const url =
                 currentMode === "lip"
@@ -62,11 +69,19 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
                 if (setStatus) setStatus(data.status);
 
                 if (data.text) {
-                    setOutputText(prev => {
-                        const baseText = prev === "Waiting for recognition..." ? "" : prev;
-                        if (baseText.endsWith(data.text)) return prev;
-                        return baseText + data.text;
-                    });
+                    const charToAdd = data.text === "_" ? " " : data.text;
+
+                    if (charToAdd !== lastDetectedChar.current) {
+                        setOutputText(prev => {
+                            const baseText = prev === "Waiting for recognition..." ? "" : prev;
+                            if (baseText.endsWith(charToAdd)) return prev;
+                            return baseText + charToAdd;
+                        });
+                        lastDetectedChar.current = charToAdd;
+                    }
+                } else {
+                    // Hand is LOST -> Reset to allow repetition
+                    lastDetectedChar.current = "";
                 }
 
                 if (canvasRef.current && videoRef.current) {
@@ -74,11 +89,6 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
                     canvasRef.current.width = videoRef.current.videoWidth;
                     canvasRef.current.height = videoRef.current.videoHeight;
                     overlayCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-
-                    // Strict check: Only draw if guides are ON AND the response matches the ACTIVE mode
-                    // We check currentMode (request scope) against mode (component state)? 
-                    // No, reliance on component state 'mode' is risky if it changed. 
-                    // But 'isMounted' handles the cleanup of the EFFECT, so we know 'mode' in this effect scope IS the active mode.
 
                     if (showGuides) {
                         const width = canvasRef.current.width;
@@ -131,12 +141,20 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
             } catch (err) {
                 console.error("Backend error:", err);
             }
-        }, 50); // Increased to 20 FPS for smoother tracking
+
+            // Schedule NEXT frame only AFTER this one is done
+            if (isMounted && isProcessing) {
+                animationFrameId = requestAnimationFrame(processFrame);
+            }
+        };
+
+        if (stream && isProcessing) {
+            processFrame();
+        }
 
         return () => {
             isMounted = false;
-            clearInterval(interval);
-            // Clear canvas ONCE when unmounting/switching modes
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
             if (canvasRef.current) {
                 const ctx = canvasRef.current.getContext('2d');
                 ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);

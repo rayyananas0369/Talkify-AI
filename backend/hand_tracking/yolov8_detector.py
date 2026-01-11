@@ -21,7 +21,7 @@ class YOLOHandDetector:
         if not self.model:
             return None
         
-        results = self.model(frame, verbose=False)
+        results = self.model(frame, conf=0.5, verbose=False)
         for r in results:
             for box in r.boxes:
                 coords = box.xyxy[0].tolist()
