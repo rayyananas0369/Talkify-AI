@@ -17,7 +17,7 @@ class SignInference:
         self.hand_tracker = HandTracker()
         self.yolo_detector = YOLOHandDetector()
         self.buffer = []
-        self.prediction_history = collections.deque(maxlen=7) # Store last 7 predictions for stability
+        self.prediction_history = collections.deque(maxlen=10) # Store last 10 predictions for stability
         try:
             self.model = load_model(SIGN_MODEL_PATH)
             print("Sign model loaded.")
@@ -76,45 +76,42 @@ class SignInference:
         y1, y2 = int(min(y_coords) - padding), int(max(y_coords) + padding)
         hand_rect = [max(0, x1), max(0, y1), min(w, x2), min(h, y2)]
 
-        # Determine Handedness
-        handedness = mp_res.multi_handedness[0].classification[0].label # "Left" or "Right"
-
         # PREPROCESSING MUST MATCH train_sign.py EXACTLY
         from backend.preprocessing.hand_keypoints import extract_hand_landmarks, landmarks_to_list
-        norm_lms = extract_hand_landmarks(mp_res)
-        
-        # Standardize: Flip if Left hand to match Right hand training data
-        if handedness == "Left":
-            for lm in norm_lms:
-                lm['x'] = -lm['x'] # Flip relative to wrist (0,0,0)
-        
-        feat = landmarks_to_list(norm_lms)
+        norm_lms_list = extract_hand_landmarks(mp_res)
+        feat = landmarks_to_list(norm_lms_list)
         
         # Skeleton for UI
         landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in lms]
 
         # 3. Prediction
         if self.model and len(feat) == 63:
-            input_data = np.expand_dims(np.array(feat), axis=0)
+            input_data = np.expand_dims(np.array(feat), axis=0) # Shape (1, 63)
             
             prob = self.model.predict(input_data, verbose=0)[0]
             max_idx = np.argmax(prob)
             confidence = float(prob[max_idx])
             
-            # Use 0.40 to allow more letters to be detected
-            if confidence > 0.40: 
+            # STOCHASTIC FILTER: If confidence is too low, the hand is likely 'in-motion'
+            # We use 0.70 to ensure we only catch steady, clear signs.
+            if confidence > 0.70: 
                 self.prediction_history.append(max_idx)
+            else:
+                # If we lose confidence, fade the history faster to prevent old garbage from sticking
+                if len(self.prediction_history) > 0:
+                    self.prediction_history.popleft()
             
-            # Vote on a window of 6 frames
-            if len(self.prediction_history) >= 6:
+            # CONSENSUS CHECK: Require 7 out of 10 matches (70% certainty over time)
+            if len(self.prediction_history) >= 10:
                 counter = collections.Counter(self.prediction_history)
                 most_common = counter.most_common(1)[0]
                 
-                # Require 3 out of 6 (50%) to agree
-                if most_common[1] >= 3: 
+                if most_common[1] >= 7: 
                     label = SIGN_CLASSES[most_common[0]]
+                    # Clear history after successful detection to prevent 'echoing'
+                    self.prediction_history.clear() 
                     return label, "System Ready", landmarks, hand_rect
             
-            return "", f"Stabilizing... ({confidence:.2f})", landmarks, hand_rect
+            return "", f"Analyzing... ({confidence:.2f})", landmarks, hand_rect
         
         return "", "Model not loaded", landmarks, hand_rect

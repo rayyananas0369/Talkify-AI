@@ -1,70 +1,60 @@
 # Software Requirement Specification (SRS)
 
-**Project:** Multimodal AI Communication Assistant for Hearing and Speech Impaired Users (Web App)
+**Project:** Talkify AI - Multimodal Communication Assistant for Hearing and Speech Impaired Users
 
 ## 1. Introduction
 
 ### 1.1 Purpose
-The purpose of this project is to build an AI-powered communication bridge for hearing and speech impaired users. It supports two primary modes:
-1. **Lip Reading**: Real-time conversion of lip movements (English) into text.
-2. **Sign Language Recognition**: Translation of hand gestures (English ASL) into written text.
+The purpose of this project is to build an AI-powered communication bridge. It supports two primary modes:
+1. **Lip Reading**: Real-time conversion of lip movements into text (**English**).
+2. **Sign Language Recognition**: Translation of hand gestures (**English ASL**) into written text.
 
 ### 1.2 Scope
-- **Platform**: Web-based application compatible with Desktop and Mobile browsers.
-- **AI Engine**: Hybrid architecture using MediaPipe for keypoint extraction and CNN-LSTM for temporal sequence classification.
-- **Latency**: Optimized for near real-time performance (< 1s response).
-- **Interface**: Accessible, high-contrast, and intuitive UI with mode toggling.
+- **Platform**: Web-based application (Desktop & Mobile browsers).
+- **Core Logic**: Frontend (React) capturing video and Backend (FastAPI) performing AI inference.
+- **Accuracy**: Optimized for low-latency, high-precision detection of alphabet, numbers, and spaces.
 
 ### 1.3 Definitions
-- **YOLOv8**: Advanced object detection model used for hand and face localization.
-- **MediaPipe**: Framework for high-fidelity hand and face mesh tracking.
-- **CNN-LSTM**: A deep learning architecture combining spatial feature extraction (CNN) with temporal sequence modeling (LSTM).
+- **MediaPipe**: Used for high-fidelity hand keypoint extraction (63 features).
+- **YOLOv8**: Used for initial hand and face localization.
+- **Dense DNN**: The Deep Neural Network architecture used for static sign classification.
+- **3D-CNN + BiLSTM**: Architecture planned for temporal sequence modeling in lip reading.
 
 ## 2. Overall Description
 
 ### 2.1 Product Perspective
-Talkify AI operates as a client-server architecture. The Frontend (React) captures video frames and streams them to the Backend (FastAPI). The Backend processes these frames through specialized AI models and returns the predicted text to the UI.
+Talkify AI is a modular web system. It uses a high-performance Python backend to handle heavy AI computations while providing a smooth, React-based user interface.
 
 ### 2.2 Product Functions
-- **Mode Selection**: User selects between Lip Reading or Sign Language.
-- **Dynamic Capture**: Real-time camera feed processing.
-- **Inference Engine**: Hand/Face detection followed by keypoint-based gesture/movement recognition.
-- **Text Display**: Instant visual feedback of recognized speech or signs.
-- **Visual Feedback**: Optional visibility of tracking landmarks (Visual Guides).
-
-### 2.3 User Characteristics
-- **Primary**: Individuals with hearing or speech impairments seeking to communicate with non-signers.
-- **Secondary**: Educators, family members, and health professionals.
+- **Mode Selection**: Switch between Lip Reading and Sign Language.
+- **Real-time Processing**: Continuous frame-by-frame analysis with a stabilizing voting buffer.
+- **Space Detection**: Ability to recognize "Word Gaps" for forming complete sentences.
+- **Handedness Support**: Automatically handles both Left and Right-hand gestures.
 
 ## 3. System Requirements
 
 ### 3.1 Functional Requirements
-1. **Camera Permission**: Request and manage secure webcam access.
-2. **Real-time Recognition**: Continuous prediction loop for gestures and lip movements.
-3. **English Support**: Lip reading and sign recognition for the English language.
-4. **Visual Guide Toggle**: Enable/Disable landmark overlays in the camera feed.
-5. **Text Management**: "Copy Text" and "Clear Text" functionality for the recognition output.
+1. **Camera Feed**: Secure access to front/back cameras.
+2. **Gesture Recognition**: Convert ASL (A-Z, 0-9, Space) to text.
+3. **Lip Reading**: Analyze visual phonemes for **English** words.
+4. **Text Display**: Display predicted characters and words in real-time.
 
 ### 3.2 Non-Functional Requirements
-- **Performance**: Response time < 500ms for single-frame inference.
-- **Usability**: Accessible design with clear labeling and intuitive flow.
-- **Security**: No permanent storage of video frames (privacy-centric).
-- **Scalability**: Capable of switching between different model weight files for various languages.
+- **Latency**: End-to-end response time < 500ms.
+- **Stability**: Implement "Hesitation Shields" to prevent flickering output.
+- **Usability**: High-contrast UI for accessibility.
 
-## 4. System Design (High-Level)
-
-![System Architecture](./assets/system_architecture.png)
-
-1. **Frontend**: React hooks for state management and Web Camera API for capture.
-2. **Backend**: FastAPI with Uvicorn; OpenCV for frame manipulation.
-3. **Model Layer**: MediaPipe extracted features (63 hand features / 468 mesh features) passed to LSTM.
+## 4. System Design
+- **Frontend**: React hooks for video streaming and UI state.
+- **Backend**: FastAPI with Uvicorn; OpenCV for frame preprocessing.
+- **Models**: TensorFlow/Keras models trained on localized ASL datasets.
 
 ## 5. Future Enhancements
-- Support for International Sign Languages (ISL, BSL).
-- Offline execution using ONNX Runtime / TensorFlow.js.
-- Text-to-Speech (TTS) integration for bidirectional communication.
+- Text-to-Speech (TTS) for vocalizing translated text.
+- Support for International Sign Languages (ISL).
+- Mobile App (v2.0).
 
 ## 6. References
 - MediaPipe Hands & Face Mesh Documentation.
-- YOLOv8 (Ultralytics) Object Detection Framework.
-- Bi-directional LSTM for Temporal Sequence Analysis.
+- Ultralytics YOLOv8 Documentation.
+- Talkify AI Internal Preprocessing Modules.
