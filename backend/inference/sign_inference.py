@@ -61,9 +61,18 @@ class SignInference:
         mp_res = self.hand_tracker.process(image_rgb)
         
         if not mp_res.multi_hand_landmarks:
-            # Fallback to YOLO only for "Finding Hand" status, but don't return a box 
-            self.buffer = [] 
-            self.prediction_history.clear()
+            # 2. Treat 'No Hand' as a SPACE (_) class (The 'Nothing' state)
+            space_idx = SIGN_CLASSES.index('_')
+            self.prediction_history.append(space_idx)
+            
+            # Apply consensus check for Hand-Gone Space
+            if len(self.prediction_history) >= 10:
+                counter = collections.Counter(self.prediction_history)
+                most_common = counter.most_common(1)[0]
+                if most_common[1] >= 7 and SIGN_CLASSES[most_common[0]] == '_':
+                    self.prediction_history.clear()
+                    return "_", "Space Detected", [], None
+            
             return "", "Finding Hand...", [], None
 
         # Derive precise Hand Bounding Box from Landmarks (Original stable version)
