@@ -60,24 +60,55 @@ class SignInference:
         # We rely on MediaPipe for the most accurate Hand-only tracking
         mp_res = self.hand_tracker.process(image_rgb)
         
+    def is_open_palm(self, landmarks):
+        """Heuristic for Open Palm: All fingers extended and close together"""
+        # Landmark indices: Tip (8, 12, 16, 20), MCP (5, 9, 13, 17)
+        tips = [8, 12, 16, 20]
+        mcps = [5, 9, 13, 17]
+        
+        # 1. All fingers must be above their MCPs (extended)
+        for t, m in zip(tips, mcps):
+            if landmarks[t].y >= landmarks[m].y:
+                return False
+                
+        # 2. Thumb should be relatively extended 
+        # Tip (4) vs IP joint (3)
+        if landmarks[4].y >= landmarks[3].y:
+            return False
+            
+        return True
+
+    def predict(self, frame):
+        image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # 1. Detection Stage
+        mp_res = self.hand_tracker.process(image_rgb)
+        
         if not mp_res.multi_hand_landmarks:
-            # 2. Treat 'No Hand' as a SPACE (_) class (The 'Nothing' state)
+            # Clear history when hand is gone to prevent accidental spaces or repeats
+            self.prediction_history.clear()
+            return "", "Finding Hand...", [], None
+
+        # Landmarks for UI and Heuristics
+        lms = mp_res.multi_hand_landmarks[0].landmark
+        landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in lms]
+
+        # 2. HEURISTIC: Open Palm = INSTANT SPACE
+        if self.is_open_palm(lms):
             space_idx = SIGN_CLASSES.index('_')
             self.prediction_history.append(space_idx)
             
-            # Apply consensus check for Hand-Gone Space
-            if len(self.prediction_history) >= 10:
+            # Faster consensus for deliberate gesture (8 frames ~ 0.25s)
+            if len(self.prediction_history) >= 8:
                 counter = collections.Counter(self.prediction_history)
                 most_common = counter.most_common(1)[0]
-                if most_common[1] >= 7 and SIGN_CLASSES[most_common[0]] == '_':
+                if most_common[1] >= 6 and SIGN_CLASSES[most_common[0]] == '_':
                     self.prediction_history.clear()
-                    return "_", "Space Detected", [], None
-            
-            return "", "Finding Hand...", [], None
+                    return "_", "Space Detected (Palm)", landmarks, None
+            return "", "Holding Space...", landmarks, None
 
-        # Derive precise Hand Bounding Box from Landmarks (Original stable version)
+        # Derive precise Hand Bounding Box from Landmarks
         h, w, _ = frame.shape
-        lms = mp_res.multi_hand_landmarks[0].landmark
         x_coords = [lm.x * w for lm in lms]
         y_coords = [lm.y * h for lm in lms]
         padding = 20
@@ -90,37 +121,30 @@ class SignInference:
         norm_lms_list = extract_hand_landmarks(mp_res)
         feat = landmarks_to_list(norm_lms_list)
         
-        # Skeleton for UI
-        landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in lms]
-
-        # 3. Prediction
+        # 3. Model Prediction
         if self.model and len(feat) == 63:
-            input_data = np.expand_dims(np.array(feat), axis=0) # Shape (1, 63)
+            input_data = np.expand_dims(np.array(feat), axis=0)
             
             prob = self.model.predict(input_data, verbose=0)[0]
             max_idx = np.argmax(prob)
             confidence = float(prob[max_idx])
             
-            # STOCHASTIC FILTER: If confidence is too low, the hand is likely 'in-motion'
-            # We use 0.70 to ensure we only catch steady, clear signs.
             if confidence > 0.70: 
                 self.prediction_history.append(max_idx)
             else:
-                # If we lose confidence, fade the history faster to prevent old garbage from sticking
                 if len(self.prediction_history) > 0:
                     self.prediction_history.popleft()
             
-            # CONSENSUS CHECK: Require 7 out of 10 matches (70% certainty over time)
             if len(self.prediction_history) >= 10:
                 counter = collections.Counter(self.prediction_history)
                 most_common = counter.most_common(1)[0]
                 
                 if most_common[1] >= 7: 
                     label = SIGN_CLASSES[most_common[0]]
-                    # Clear history after successful detection to prevent 'echoing'
                     self.prediction_history.clear() 
                     return label, "System Ready", landmarks, hand_rect
             
             return "", f"Analyzing... ({confidence:.2f})", landmarks, hand_rect
         
         return "", "Model not loaded", landmarks, hand_rect
+

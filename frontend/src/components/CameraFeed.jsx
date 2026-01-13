@@ -70,25 +70,29 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
                 if (setStatus) setStatus(data.status);
 
                 if (data.text) {
-                    const charToAdd = data.text === "_" ? " " : data.text;
-
-                    if (charToAdd !== lastDetectedChar.current) {
-                        setOutputText(prev => {
-                            const baseText = prev === "Waiting for recognition..." ? "" : prev;
-                            return baseText + charToAdd;
-                        });
-                        lastDetectedChar.current = charToAdd;
-                        framesHeld.current = 1;
+                    if (currentMode === 'lip') {
+                        // Sentence-level replacement for Lip Reading
+                        setOutputText(data.text);
                     } else {
-                        // Same sign held -> Allow auto-repeat after a delay
-                        framesHeld.current += 1;
-                        if (framesHeld.current >= 25) { // Approx 1 second
-                            setOutputText(prev => prev + charToAdd);
-                            framesHeld.current = 1; // Reset counter for next repeat
+                        // Character-level appending for Sign Language
+                        const charToAdd = data.text === "_" ? " " : data.text;
+
+                        if (charToAdd !== lastDetectedChar.current) {
+                            setOutputText(prev => {
+                                const baseText = (prev === "Waiting for recognition..." || prev === "") ? "" : prev;
+                                return baseText + charToAdd;
+                            });
+                            lastDetectedChar.current = charToAdd;
+                            framesHeld.current = 1;
+                        } else {
+                            framesHeld.current += 1;
+                            if (framesHeld.current >= 25) {
+                                setOutputText(prev => prev + charToAdd);
+                                framesHeld.current = 1;
+                            }
                         }
                     }
-                } else if (data.status && data.status.includes("Finding Hand")) {
-                    // Only reset if hand is actually GONE to avoid double-typing on jitter
+                } else if (data.status && (data.status.includes("Finding Hand") || data.status.includes("Finding Face"))) {
                     lastDetectedChar.current = "";
                     framesHeld.current = 0;
                 }

@@ -59,26 +59,29 @@ class LipInference:
             self.model = None
             print(f"Error loading LipNet: {e}.")
 
-    def get_mouth_crop(self, frame, landmarks, padding=10):
-        h, w = frame.shape[:2]
+    def get_mouth_crop(self, image_rgb, landmarks, padding=12):
+        h, w = image_rgb.shape[:2]
         xs = [int(lm.x * w) for lm in landmarks]
         ys = [int(lm.y * h) for lm in landmarks]
         x_min, x_max = max(0, min(xs) - padding), min(w, max(xs) + padding)
         y_min, y_max = max(0, min(ys) - padding), min(h, max(ys) + padding)
-        mouth_roi = frame[y_min:y_max, x_min:x_max]
+        mouth_roi = image_rgb[y_min:y_max, x_min:x_max]
         if mouth_roi.size == 0: return np.zeros((50, 100, 3), dtype=np.uint8)
         return cv2.resize(mouth_roi, (100, 50))
+
+    def standardize(self, image):
+        # GRID Global Mean/Std for RGB
+        mean = np.array([0.7136, 0.4906, 0.3283], dtype='float32')
+        std = np.array([0.1138, 0.1078, 0.1017], dtype='float32')
+        return (image - mean) / std
 
     def ctc_decode(self, y_pred):
         """Greedy CTC Decoder"""
         # y_pred shape: (1, 75, 28)
-        # 1. Get the most likely char index for each frame
         res = np.argmax(y_pred[0], axis=-1)
         
-        # 2. String it together
         out = ""
         prev = -1
-        # The blank token is usually the last one (27)
         BLANK = 27 
         
         for char_idx in res:
@@ -100,26 +103,34 @@ class LipInference:
         LIPS = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95]
         lms_raw = [mp_results.multi_face_landmarks[0].landmark[i] for i in LIPS]
         lms = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in lms_raw]
-        mouth_crop = self.get_mouth_crop(frame, lms_raw)
         
-        # Preprocessing: Normalize and Buffer
-        # Shape (50, 100, 3)
-        self.buffer.append(mouth_crop.astype('float32') / 255.0)
+        # 1. Extract Crop using RGB image
+        mouth_crop = self.get_mouth_crop(image_rgb, lms_raw)
+        
+        # 2. Preprocessing: Normalize to [0,1] then Standardize
+        normalized = mouth_crop.astype('float32') / 255.0
+        standardized = self.standardize(normalized)
+        
+        # 3. Buffer
+        self.buffer.append(standardized)
         
         if len(self.buffer) > LIPNET_SEQUENCE_LENGTH:
             self.buffer.pop(0)
 
-        # 4. LipNet Sentence Prediction
+        # 4. LipNet Sentence Prediction (Rolling Prediction)
+        # We predict every 15 frames (0.5s) once the buffer is primed
         if self.model and len(self.buffer) == LIPNET_SEQUENCE_LENGTH:
-            input_data = np.expand_dims(np.array(self.buffer), axis=0) # (1, 75, 50, 100, 3)
+            # Add a small prediction throttle to save CPU
+            if not hasattr(self, 'pred_throttle'): self.pred_throttle = 0
+            self.pred_throttle += 1
             
-            y_pred = self.model.predict(input_data, verbose=0)
-            sentence = self.ctc_decode(y_pred)
+            if self.pred_throttle >= 15:
+                self.pred_throttle = 0
+                input_data = np.expand_dims(np.array(self.buffer), axis=0)
+                y_pred = self.model.predict(input_data, verbose=0)
+                sentence = self.ctc_decode(y_pred)
+                
+                if len(sentence.strip()) > 2:
+                    return sentence.upper(), "Detecting Movement...", lms
             
-            # Since LipNet is sentence-level, one successful buffer = one sentence
-            # We clear the buffer after a high-confidence prediction to allow next sentence
-            if len(sentence.strip()) > 3:
-                self.buffer = [] # Reset for next sentence
-                return sentence.upper(), "Sentence Detected", lms
-            
-        return "", f"Recording... ({len(self.buffer)}/{LIPNET_SEQUENCE_LENGTH})", lms
+        return "", f"Analyzing Move... ({len(self.buffer)}/{LIPNET_SEQUENCE_LENGTH})", lms

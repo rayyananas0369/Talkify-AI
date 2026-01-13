@@ -26,8 +26,8 @@ def get_lipnet_model(img_c=3, img_w=100, img_h=50, frames_n=75, output_size=28):
     # Reshape for GRU
     x = TimeDistributed(Flatten(), name='time_distributed_1')(x)
 
-    x = Bidirectional(GRU(256, return_sequences=True, kernel_initializer='Orthogonal'), merge_mode='concat', name='bidirectional_1')(x)
-    x = Bidirectional(GRU(256, return_sequences=True, kernel_initializer='Orthogonal'), merge_mode='concat', name='bidirectional_2')(x)
+    x = Bidirectional(GRU(256, return_sequences=True, kernel_initializer='Orthogonal', reset_after=False), merge_mode='concat', name='bidirectional_1')(x)
+    x = Bidirectional(GRU(256, return_sequences=True, kernel_initializer='Orthogonal', reset_after=False), merge_mode='concat', name='bidirectional_2')(x)
 
     x = Dense(output_size, kernel_initializer='he_normal', name='dense1')(x)
     # Note: CTC decoding will be handled in inference
