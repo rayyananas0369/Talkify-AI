@@ -12,12 +12,14 @@ YOLO_MODEL_PATH = "yolo11n.pt"
 # Constants
 SEQUENCE_LENGTH = 15
 LIPNET_SEQUENCE_LENGTH = 75
-SIGN_CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_']
+SIGN_CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'SPACE']
+NUMBER_CLASSES = SIGN_CLASSES[:10]
+ALPHABET_CLASSES = SIGN_CLASSES[10:]
 LIP_CLASSES = ["blue", "green", "red", "white"] # Legacy
 LIPNET_CLASSES = list('abcdefghijklmnopqrstuvwxyz ') # 27 chars
 
 # Vision Config
-HAND_CONFIDENCE = 0.5
+HAND_CONFIDENCE = 0.3
 FACE_CONFIDENCE = 0.5
 MAX_HANDS = 1
 MAX_FACES = 1

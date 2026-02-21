@@ -1,150 +1,193 @@
 import cv2
 import numpy as np
-from tensorflow.keras.models import load_model
-from backend.config import SIGN_MODEL_PATH, SIGN_CLASSES, SEQUENCE_LENGTH
-from backend.hand_tracking.mediapipe_hand import HandTracker
-from backend.hand_tracking.yolov8_detector import YOLOHandDetector
-# from backend.preprocessing.hand_keypoints import extract_hand_landmarks, landmarks_to_list
-
-IMG_SIZE = 64
-GRID_SIZE = 8
-FEATURE_DIM = 63
-
 import collections
+import time
+import os
+from tensorflow.keras.models import load_model
+from backend.config import SIGN_MODEL_PATH, SIGN_CLASSES, ALPHABET_CLASSES, NUMBER_CLASSES
+from backend.hand_tracking.mediapipe_hand import HandTracker
+from backend.preprocessing.hand_keypoints import extract_hand_landmarks, landmarks_to_list
+
+# --- HELPER CLASSES ---
+
+class GestureStabilizer:
+    """
+    Stabilizes predictions using a buffer, majority voting, and cooldowns.
+    """
+    def __init__(self, buffer_size=10, consensus_threshold=7, cooldown=0.5):
+        self.buffer = collections.deque(maxlen=buffer_size)
+        self.consensus_threshold = consensus_threshold
+        self.cooldown = cooldown
+        self.last_prediction_time = 0
+        self.last_stable_gesture = ""
+
+    def update(self, prediction_idx, confidence):
+        """
+        Updates buffer and returns stable prediction if consensus is reached.
+        """
+        if confidence > 0.5:
+            self.buffer.append(prediction_idx)
+        
+        if len(self.buffer) == self.buffer.maxlen:
+            counter = collections.Counter(self.buffer)
+            most_common, count = counter.most_common(1)[0]
+            
+            if count >= self.consensus_threshold:
+                gesture = SIGN_CLASSES[most_common]
+                
+                current_time = time.time()
+                if gesture != self.last_stable_gesture:
+                    if (current_time - self.last_prediction_time) > self.cooldown:
+                        self.last_stable_gesture = gesture
+                        self.last_prediction_time = current_time
+                        return gesture
+                else:
+                    # Refresh prediction time to keep it stable
+                    self.last_prediction_time = current_time
+                    return gesture
+        return None
+    
+    def clear(self):
+        self.buffer.clear()
+
+# --- MAIN INFERENCE CLASS ---
 
 class SignInference:
     def __init__(self):
         self.hand_tracker = HandTracker()
-        self.yolo_detector = YOLOHandDetector()
-        self.buffer = []
-        self.prediction_history = collections.deque(maxlen=10) # Store last 10 predictions for stability
+        self.stabilizer = GestureStabilizer()
+        
         try:
             self.model = load_model(SIGN_MODEL_PATH)
-            print("Sign model loaded.")
-        except:
+            print(f"Sign model loaded from: {SIGN_MODEL_PATH}")
+        except Exception as e:
             self.model = None
-            print("Sign model not found. Using heuristic fallback.")
-
-    def extract_grid_features(self, frame, rect):
-        """Extract features matching train_sign.py logic"""
-        if rect is None: return None
-        x1, y1, x2, y2 = rect
-        # Add padding
-        h, w = frame.shape[:2]
-        pad = 20
-        x1, y1 = max(0, x1-pad), max(0, y1-pad)
-        x2, y2 = min(w, x2+pad), min(h, y2+pad)
-        
-        hand_img = frame[y1:y2, x1:x2]
-        if hand_img.size == 0: return None
-        
-        # Match train_sign.py preprocessing
-        img = cv2.resize(hand_img, (IMG_SIZE, IMG_SIZE))
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img = img.astype('float32') / 255.0
-        
-        cell_h = IMG_SIZE // GRID_SIZE
-        cell_w = IMG_SIZE // GRID_SIZE
-        features = []
-        for i in range(GRID_SIZE):
-            for j in range(GRID_SIZE):
-                cell = img[i*cell_h:(i+1)*cell_h, j*cell_w:(j+1)*cell_w]
-                features.append(np.mean(cell))
-                features.append(np.std(cell))
-        return np.array(features)
+            print(f"Error loading sign model: {e}")
 
     def predict(self, frame):
-        image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # 1. Detection Stage
-        # We rely on MediaPipe for the most accurate Hand-only tracking
-        mp_res = self.hand_tracker.process(image_rgb)
-        
-    def is_open_palm(self, landmarks):
-        """Heuristic for Open Palm: All fingers extended and close together"""
-        # Landmark indices: Tip (8, 12, 16, 20), MCP (5, 9, 13, 17)
-        tips = [8, 12, 16, 20]
-        mcps = [5, 9, 13, 17]
-        
-        # 1. All fingers must be above their MCPs (extended)
-        for t, m in zip(tips, mcps):
-            if landmarks[t].y >= landmarks[m].y:
-                return False
-                
-        # 2. Thumb should be relatively extended 
-        # Tip (4) vs IP joint (3)
-        if landmarks[4].y >= landmarks[3].y:
-            return False
-            
-        return True
+        """
+        Runs inference on a single frame.
+        """
+        if frame is None:
+            return "", "No frame", [], None
 
-    def predict(self, frame):
+        if self.model is None:
+            return "", "Model not loaded", [], None
+
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # 1. Detection Stage
         mp_res = self.hand_tracker.process(image_rgb)
         
         if not mp_res.multi_hand_landmarks:
-            # Clear history when hand is gone to prevent accidental spaces or repeats
-            self.prediction_history.clear()
-            return "", "Finding Hand...", [], None
+            self.stabilizer.clear()
+            return "", "NO HAND DETECTED", [], None
 
-        # Landmarks for UI and Heuristics
-        lms = mp_res.multi_hand_landmarks[0].landmark
-        landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in lms]
+        # 1. Get Landmarks & Handedness
+        lms_obj = mp_res.multi_hand_landmarks[0].landmark
+        handedness_obj = mp_res.multi_handedness[0].classification[0]
+        hand_label = handedness_obj.label  # "Left" or "Right" (MediaPipe convention)
+        
+        landmarks = [{'x': lm.x, 'y': lm.y, 'z': lm.z} for lm in lms_obj]
 
-        # 2. HEURISTIC: Open Palm = INSTANT SPACE
-        if self.is_open_palm(lms):
-            space_idx = SIGN_CLASSES.index('_')
-            self.prediction_history.append(space_idx)
+        # 2. Static Model Prediction
+        norm_lms = extract_hand_landmarks(mp_res)
+        feat = landmarks_to_list(norm_lms)
+        
+        if len(feat) == 63:
+            input_data = np.expand_dims(np.array(feat), axis=0)
+            prediction = self.model.predict(input_data, verbose=0)[0]
             
-            # Faster consensus for deliberate gesture (8 frames ~ 0.25s)
-            if len(self.prediction_history) >= 8:
-                counter = collections.Counter(self.prediction_history)
-                most_common = counter.most_common(1)[0]
-                if most_common[1] >= 6 and SIGN_CLASSES[most_common[0]] == '_':
-                    self.prediction_history.clear()
-                    return "_", "Space Detected (Palm)", landmarks, None
-            return "", "Holding Space...", landmarks, None
+            # --- Space Gesture Heuristic (Right Hand Only) ---
+            is_space = False
+            if hand_label == "Left": # Physical Right Hand
+                is_space = self._is_space_gesture(lms_obj)
 
-        # Derive precise Hand Bounding Box from Landmarks
+            # Pad prediction if model only returns 36 classes (0-9, A-Z)
+            if len(prediction) == 36:
+                prediction = np.append(prediction, [0.0])
+            
+            # --- Space Gesture Heuristic (Right Hand Only) ---
+
+            # Map raw labels to user-friendly names
+            friendly_hand = "Right Hand" if hand_label == "Left" else "Left Hand"
+            
+            # Debug/Status flags for heuristic
+            h_info = ""
+            if hand_label == "Left":
+                f_up, t_ex, vert = self._get_space_debug(lms_obj)
+                h_info = f" [F:{int(f_up)} T:{int(t_ex)} V:{int(vert)}]"
+
+            # SPACE OVERRIDE (Physical Right Hand)
+            space_idx = SIGN_CLASSES.index("SPACE") if "SPACE" in SIGN_CLASSES else -1
+            model_pred_idx = np.argmax(prediction)
+            
+            if hand_label == "Left": # Right Hand
+                 if is_space or (model_pred_idx == 5 and prediction[5] > 0.3):
+                     if space_idx != -1:
+                        prediction.fill(0.0)
+                        prediction[space_idx] = 1.0
+
+            # --- Handedness Filtering ---
+            mask = np.zeros_like(prediction)
+            
+            if hand_label == "Left": # Physical Right Hand
+                 # Allow A-Z + SPACE
+                 for idx, cls in enumerate(SIGN_CLASSES):
+                     if cls in ALPHABET_CLASSES or cls == "SPACE":
+                         mask[idx] = 1.0
+            elif hand_label == "Right": # Physical Left Hand
+                # Allow only Numbers
+                for idx, cls in enumerate(SIGN_CLASSES):
+                    if cls in NUMBER_CLASSES:
+                        mask[idx] = 1.0
+            else:
+                mask = np.ones_like(prediction)
+
+            # Apply mask
+            masked_prediction = prediction * mask
+            
+            if np.sum(masked_prediction) == 0:
+                return "", f"Wrong Hand ({friendly_hand})", landmarks, self._get_hand_rect(frame, lms_obj)
+
+            # Re-normalize
+            masked_prediction /= np.sum(masked_prediction)
+
+            max_idx = np.argmax(masked_prediction)
+            confidence = float(masked_prediction[max_idx])
+            raw_label = SIGN_CLASSES[max_idx]
+            
+            # 3. Stabilization
+            stable_gesture = self.stabilizer.update(max_idx, confidence)
+            
+            hand_rect = self._get_hand_rect(frame, lms_obj)
+            
+            # Map "SPACE" label to actual " " character for transcription
+            output_text = stable_gesture
+            if stable_gesture == "SPACE":
+                output_text = " "
+
+            status_text = f"Stable: {stable_gesture}" if stable_gesture else f"Analyzing: {raw_label}"
+            return output_text if stable_gesture else "", f"{status_text} ({confidence:.2f}) [{friendly_hand}]", landmarks, hand_rect
+        
+        return "", "Feature error", landmarks, None
+
+    def _get_space_debug(self, lms):
+        """Returns the individual components of the space heuristic for debugging."""
+        f_up = (lms[8].y < lms[6].y and lms[12].y < lms[10].y and lms[16].y < lms[14].y and lms[20].y < lms[18].y)
+        # Thumb extended: loosen more
+        t_ex = abs(lms[4].x - lms[5].x) > 0.01 
+        vert = lms[12].y < lms[0].y
+        return f_up, t_ex, vert
+
+    def _is_space_gesture(self, lms):
+        """Heuristic for 'SPACE' (Open Palm)."""
+        f_up, t_ex, vert = self._get_space_debug(lms)
+        return f_up and t_ex and vert
+
+    def _get_hand_rect(self, frame, lms):
         h, w, _ = frame.shape
         x_coords = [lm.x * w for lm in lms]
         y_coords = [lm.y * h for lm in lms]
         padding = 20
         x1, x2 = int(min(x_coords) - padding), int(max(x_coords) + padding)
         y1, y2 = int(min(y_coords) - padding), int(max(y_coords) + padding)
-        hand_rect = [max(0, x1), max(0, y1), min(w, x2), min(h, y2)]
-
-        # PREPROCESSING MUST MATCH train_sign.py EXACTLY
-        from backend.preprocessing.hand_keypoints import extract_hand_landmarks, landmarks_to_list
-        norm_lms_list = extract_hand_landmarks(mp_res)
-        feat = landmarks_to_list(norm_lms_list)
-        
-        # 3. Model Prediction
-        if self.model and len(feat) == 63:
-            input_data = np.expand_dims(np.array(feat), axis=0)
-            
-            prob = self.model.predict(input_data, verbose=0)[0]
-            max_idx = np.argmax(prob)
-            confidence = float(prob[max_idx])
-            
-            if confidence > 0.70: 
-                self.prediction_history.append(max_idx)
-            else:
-                if len(self.prediction_history) > 0:
-                    self.prediction_history.popleft()
-            
-            if len(self.prediction_history) >= 10:
-                counter = collections.Counter(self.prediction_history)
-                most_common = counter.most_common(1)[0]
-                
-                if most_common[1] >= 7: 
-                    label = SIGN_CLASSES[most_common[0]]
-                    self.prediction_history.clear() 
-                    return label, "System Ready", landmarks, hand_rect
-            
-            return "", f"Analyzing... ({confidence:.2f})", landmarks, hand_rect
-        
-        return "", "Model not loaded", landmarks, hand_rect
-
+        return [max(0, x1), max(0, y1), min(w, x2), min(h, y2)]
