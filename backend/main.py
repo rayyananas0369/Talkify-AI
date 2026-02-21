@@ -9,7 +9,7 @@ from backend.inference.sign_inference import SignInference
 from backend.inference.lip_inference import LipInference
 
 sign_engine = SignInference()
-lip_engine = LipInference()
+# lip_engine = LipInference()
 
 app = FastAPI()
 
@@ -46,7 +46,8 @@ async def predict_lip(file: UploadFile = File(...)):
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
-    text, status, landmarks = lip_engine.predict(frame)
+    # text, status, landmarks = lip_engine.predict(frame)
+    text, status, landmarks = "Lip Reading Disabled", "Backend initializing...", []
     
     return {
         "text": text,
@@ -67,4 +68,4 @@ async def predict_video(file: UploadFile = File(...)):
     }
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8001)

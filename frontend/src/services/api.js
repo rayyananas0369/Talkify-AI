@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000";
+const API_URL = "http://localhost:8001";
 
 export const predictSign = async (formData) => {
     const res = await fetch(`${API_URL}/predict/sign`, { method: "POST", body: formData });

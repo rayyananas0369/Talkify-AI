@@ -60,10 +60,16 @@ Once you have put the images in the folders:
 cd backend
 ```
 
-**Step 2**: Run the training command.
+**Step 2 (Local)**: Run the training command on your PC.
 ```powershell
-python train.py --model sign --epochs 20
+python training/train_sign.py
 ```
+
+**Step 2 (Cloud - RECOMMENDED)**:
+1. Upload the project to Google Drive.
+2. Open `docs/Talkify_AI_Colab_Training.ipynb` in [Google Colab](https://colab.research.google.com/).
+3. Follow the notebook instructions to train using a GPU.
+4. Download the resulting `sign_model_colab.h5` and place it in `backend/models/sign_model.h5`.
 
 The script will:
 1. Detect images in `data/sign_language/train`.

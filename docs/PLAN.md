@@ -35,7 +35,7 @@
 ---
 
 ## 📅 Upcoming Milestones
-1. **End-to-End Bengali Lip Reading**: Target Q1.
+1. **Fine-tuning Lip Reading Accuracy**: Target Q1.
 2. **Offline Mode**: Conversion to TFLite for mobile execution.
 3. **Voice Translation**: Integrated Text-to-Speech (TTS).
 

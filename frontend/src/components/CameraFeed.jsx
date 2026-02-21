@@ -8,8 +8,10 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
     const [showPopup, setShowPopup] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [showGuides, setShowGuides] = useState(true);
+    const [cameraError, setCameraError] = useState(null);
 
     const handleStartClick = () => {
+        setCameraError(null);
         setShowPopup(true);
         setOutputText("Waiting for recognition...");
     };
@@ -22,8 +24,10 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
             }
             setStream(mediaStream);
             setIsProcessing(true);
+            setCameraError(null);
         } catch (err) {
             console.error("Camera access denied", err);
+            setCameraError(err.name === "NotAllowedError" ? "Camera access was denied. Please check your browser settings." : "Could not access camera: " + err.message);
         }
         setShowPopup(false);
     };
@@ -57,8 +61,8 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
             const currentMode = mode;
             const url =
                 currentMode === "lip"
-                    ? "http://localhost:8000/predict/lip"
-                    : "http://localhost:8000/predict/sign";
+                    ? "http://localhost:8001/predict/lip"
+                    : "http://localhost:8001/predict/sign";
 
             try {
                 const res = await fetch(url, { method: "POST", body: formData });
@@ -233,9 +237,11 @@ export default function CameraFeed({ mode, setOutputText, status, setStatus }) {
                 {!stream && (
                     <div className="text-center p-6">
                         <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-500">
-                            <VideoOff className="w-8 h-8" />
+                            {cameraError ? <ShieldCheck className="w-8 h-8 text-red-400" /> : <VideoOff className="w-8 h-8" />}
                         </div>
-                        <p className="text-slate-400 text-sm">Camera is currently off</p>
+                        <p className={`${cameraError ? 'text-red-400' : 'text-slate-400'} text-sm max-w-xs mx-auto`}>
+                            {cameraError || "Camera is currently off"}
+                        </p>
                     </div>
                 )}
                 <video

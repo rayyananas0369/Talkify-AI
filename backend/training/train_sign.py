@@ -12,7 +12,7 @@ from backend.preprocessing.hand_keypoints import landmarks_to_list, extract_hand
 # Config
 DATA_PATH = os.path.join(os.path.dirname(__file__), '../data/sign_language/alphabet/Gesture Image Data')
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '../models/sign_model.h5')
-CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_']
+CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
 SEQUENCE_LENGTH = 15
 FEATURE_DIM = 63  # 21 landmarks * 3 (x, y, z)
 

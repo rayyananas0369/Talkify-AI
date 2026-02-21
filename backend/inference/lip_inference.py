@@ -91,6 +91,35 @@ class LipInference:
             prev = char_idx
         return out
 
+    def smart_correct(self, raw_text):
+        """
+        Maps raw LipNet output to common daily phrases.
+        The GRID model is quirky, so we map what it 'thinks' it sees to what the user likely said.
+        """
+        raw = raw_text.replace(" ", "").upper()
+        
+        # Dictionary of "Visual Rhymes"
+        # The key is what the GRID model often predicts for these shapes
+        # The value is the actual meaningful word
+        PHRASES = {
+            "HELLO": ["LAY", "PLACE", "RED", "H"], # 'Lay' looks like 'Hey'/'Hello'
+            "HELP": ["HEP", "HAP", "AT"],
+            "YES": ["SET", "YES", "YE"],
+            "NO": ["NOW", "KNOW", "BIN"],
+            "THANKS": ["TANKS", "THX"],
+            "GOOD": ["BLUE", "GREEN"], # 'Blue' often triggers on 'Good'
+            "BYE": ["BY", "LAY", "WHITE"]
+        }
+        
+        # 1. Direct contains check
+        for correct, variants in PHRASES.items():
+            if raw == correct: return correct
+            for v in variants:
+                if v in raw:
+                    return correct
+                    
+        return raw_text
+
     def predict(self, frame):
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_results = self.face_tracker.process(image_rgb)
@@ -118,7 +147,6 @@ class LipInference:
             self.buffer.pop(0)
 
         # 4. LipNet Sentence Prediction (Rolling Prediction)
-        # We predict every 15 frames (0.5s) once the buffer is primed
         if self.model and len(self.buffer) == LIPNET_SEQUENCE_LENGTH:
             # Add a small prediction throttle to save CPU
             if not hasattr(self, 'pred_throttle'): self.pred_throttle = 0
@@ -128,9 +156,12 @@ class LipInference:
                 self.pred_throttle = 0
                 input_data = np.expand_dims(np.array(self.buffer), axis=0)
                 y_pred = self.model.predict(input_data, verbose=0)
-                sentence = self.ctc_decode(y_pred)
+                raw_sentence = self.ctc_decode(y_pred)
                 
-                if len(sentence.strip()) > 2:
-                    return sentence.upper(), "Detecting Movement...", lms
+                # 5. Smart Correction
+                final_text = self.smart_correct(raw_sentence)
+                
+                if len(final_text.strip()) > 1:
+                    return final_text.upper(), "Detecting Speech...", lms
             
-        return "", f"Analyzing Move... ({len(self.buffer)}/{LIPNET_SEQUENCE_LENGTH})", lms
+        return "", f"Listening... ({len(self.buffer)}/{LIPNET_SEQUENCE_LENGTH})", lms

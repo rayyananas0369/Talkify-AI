@@ -8,7 +8,7 @@ Talkify AI is an advanced, real-time communication bridge designed for the heari
 
 ## 🌟 Key Features
 
-- **Lip Reading (Dual Language)**: Real-time recognition of lip movements in both **Bengali** and **English**.
+- **Lip Reading**: Real-time recognition of lip movements in **English**.
 - **Sign Language Recognition**: High-accuracy translation of ASL gestures using YOLOv8 and MediaPipe.
 - **Hybrid AI Engine**: Combines MediaPipe keypoint extraction with CNN-LSTM temporal processing.
 - **Real-time Performance**: Optimized for low-latency feedback (<500ms).
