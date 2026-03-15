@@ -34,13 +34,13 @@ backend/
   *Note: This requires a Kaggle API key. Follow the instructions in the script.*
 - **Manual Option**: Download the dataset, extract it, and copy the folders (A, B, C...) into `backend/data/sign_language/train`.
 
-### Lip Reading (Video Classification)
-Lip reading is more complex. The current script expects processed data, but generally, you would organize videos by word/sentence.
+### Voice Recognition (Video Classification)
+Voice recognition is more complex. The current script expects processed data, but generally, you would organize videos by word/sentence.
 
 ```
 backend/
 ├── data/
-│   ├── lip_reading/
+│   ├── voice_reading/
 │   │   ├── train/
 │   │   │   ├── word_hello/
 │   │   │   │   ├── video1.mp4
@@ -48,7 +48,7 @@ backend/
 ```
 
 **Where to get data?**
-- [LipNet Dataset](https://github.com/rizkiarm/LipNet)
+- [VoiceNet Dataset](https://github.com/rizkiarm/VoiceNet)
 - [GRID Corpus](http://spandh.dcs.shef.ac.uk/gridcorpus/)
 
 ## 2. Running Training

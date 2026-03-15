@@ -5,7 +5,7 @@ export const predictSign = async (formData) => {
     return await res.json();
 };
 
-export const predictLip = async (formData) => {
-    const res = await fetch(`${API_URL}/predict/lip`, { method: "POST", body: formData });
+export const predictVoice = async (formData) => {
+    const res = await fetch(`${API_URL}/predict/voice`, { method: "POST", body: formData });
     return await res.json();
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Hand, Accessibility, Repeat, Smile } from "lucide-react";
+import { Hand, Accessibility, Repeat, Mic } from "lucide-react";
 
 const Controls = () => {
   const features = [
@@ -9,9 +9,9 @@ const Controls = () => {
       icon: <Hand size={32} color="#f59e0b" />,
     },
     {
-      title: "Lip Reading Technology",
-      desc: "Cutting-edge lip reading algorithms convert visual speech into written text.",
-      icon: <Smile size={32} color="#3b82f6" />,
+      title: "Voice Recognition Technology",
+      desc: "Advanced voice recognition algorithms convert speech into written text.",
+      icon: <Mic size={32} color="#3b82f6" />,
     },
     {
       title: "Accessibility Focused",

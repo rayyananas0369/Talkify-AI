@@ -28,3 +28,7 @@ logs/
 temp/
 .DS_Store
 frontend/test.txt
+.env
+*_log.txt
+*.log
+frontend/lint_output.txt

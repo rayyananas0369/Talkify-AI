@@ -151,12 +151,37 @@ if __name__ == "__main__":
     )
     
     # Evaluate
-    print("\nEvaluating model...")
-    loss, accuracy = model.evaluate(X_test, y_test, verbose=0)
-    print(f"Test Loss: {loss:.4f}")
-    print(f"Test Accuracy: {accuracy:.4f}")
+    print("\nEvaluating model with comprehensive metrics...")
     
-    # Save model
+    # 1. Get raw Keras accuracy/loss
+    loss, accuracy = model.evaluate(X_test, y_test, verbose=0)
+    
+    # 2. Get scikit-learn metrics
+    from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score
+    import numpy as np
+    
+    y_pred_probs = model.predict(X_test)
+    y_pred_classes = np.argmax(y_pred_probs, axis=1)
+    y_true_classes = np.argmax(y_test, axis=1)
+    
+    acc = accuracy_score(y_true_classes, y_pred_classes)
+    prec = precision_score(y_true_classes, y_pred_classes, average='weighted', zero_division=0)
+    rec = recall_score(y_true_classes, y_pred_classes, average='weighted', zero_division=0)
+    f1 = f1_score(y_true_classes, y_pred_classes, average='weighted', zero_division=0)
+    
+    print("\n" + "="*40)
+    print("EVALUATION METRICS:")
+    print("="*40)
+    print(f"Test Loss:      {loss:.4f}")
+    print(f"Test Accuracy:  {acc:.4f}")
+    print(f"Test Precision: {prec:.4f} (Weighted)")
+    print(f"Test Recall:    {rec:.4f}  (Weighted)")
+    print(f"Test F1-Score:  {f1:.4f}  (Weighted)")
+    print("-"*40)
+    print("\nDetailed Report:\n")
+    print(classification_report(y_true_classes, y_pred_classes, target_names=CLASSES, zero_division=0))
+    print("="*40)
+
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
     model.save(MODEL_PATH)
     print(f"\nModel saved to: {MODEL_PATH}")

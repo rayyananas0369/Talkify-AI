@@ -10,7 +10,7 @@
 | :--- | :--- | :--- |
 | **Rayyan** | **Lead Backend Engineer** | FastAPI Development, Model Integration, Preprocessing Logic |
 | **Ardra** | **Frontend Architect** | React Interface, Camera Management, Dashboard UX Design |
-| **Nithya** | **AI Research Lead** | Dataset Preprocessing, Model Training (ASL & Lip), Accuracy Evaluation |
+| **Nithya** | **AI Research Lead** | Dataset Preprocessing, Model Training (ASL & Voice), Accuracy Evaluation |
 | **Angel** | **API & Security Lead** | API Design, Communication Protocol, Testing & Quality Assurance |
 
 ---

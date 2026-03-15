@@ -17,11 +17,11 @@
 - [x] **New Fix:** Added "Hesitation Shield" for stable output.
 - [x] **New Fix:** Implemented "Smart Mirroring" for Hand Orientation.
 
-## 🏗️ Phase 3: Lip Reading Engine (IN PROGRESS)
-- [ ] Preprocess Lip Datasets (English).
+## 🏗️ Phase 3: Voice Recognition Engine (IN PROGRESS)
+- [ ] Preprocess Voice Datasets (English).
 - [ ] Develop 3D-CNN + BiLSTM architecture for sequence prediction.
 - [ ] Implement Mouth ROI (Region of Interest) extraction using FaceMesh.
-- [ ] Connect Lip Inference engine to Frontend output.
+- [ ] Connect Voice Inference engine to Frontend output.
 
 ## 👥 Team Responsibilities
 
@@ -35,7 +35,7 @@
 ---
 
 ## 📅 Upcoming Milestones
-1. **Fine-tuning Lip Reading Accuracy**: Target Q1.
+1. **Fine-tuning Voice Recognition Accuracy**: Target Q1.
 2. **Offline Mode**: Conversion to TFLite for mobile execution.
 3. **Voice Translation**: Integrated Text-to-Speech (TTS).
 

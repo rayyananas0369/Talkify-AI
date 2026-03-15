@@ -121,10 +121,15 @@ class SignInference:
             model_pred_idx = np.argmax(prediction)
             
             if hand_label == "Left": # Right Hand
-                 if is_space or (model_pred_idx == 5 and prediction[5] > 0.3):
-                     if space_idx != -1:
-                        prediction.fill(0.0)
-                        prediction[space_idx] = 1.0
+                 # Check for Space vs B disambiguation
+                 if self._verify_b_gesture(lms_obj):
+                    prediction.fill(0.0)
+                    b_idx = SIGN_CLASSES.index("B") if "B" in SIGN_CLASSES else -1
+                    if b_idx != -1: prediction[b_idx] = 1.0
+                    is_space = False
+                 elif is_space:
+                    prediction.fill(0.0)
+                    if space_idx != -1: prediction[space_idx] = 1.0
 
             # --- Handedness Filtering ---
             mask = np.zeros_like(prediction)
@@ -155,7 +160,50 @@ class SignInference:
             confidence = float(masked_prediction[max_idx])
             raw_label = SIGN_CLASSES[max_idx]
             
-            # 3. Stabilization
+            # 3. Disambiguation Heuristics (Deep Verify)
+            if raw_label == "A":
+                # If model thinks it's 'A', but pinky is extended, it's NOT a fist 'A'
+                is_fist = self._verify_a_gesture(lms_obj)
+                if not is_fist:
+                    # Check if it should be 'Y' instead
+                    if self._verify_y_gesture(lms_obj):
+                        raw_label = "Y"
+                        max_idx = SIGN_CLASSES.index("Y")
+                    else:
+                        return "", f"Analyzing... [{friendly_hand}]", landmarks, hand_rect
+
+            elif raw_label == "Y":
+                # If model thinks it's 'Y', but pinky is folded, it's NOT 'Y'
+                is_y = self._verify_y_gesture(lms_obj)
+                if not is_y:
+                    # Check if it should be 'A' instead
+                    if self._verify_a_gesture(lms_obj):
+                        raw_label = "A"
+                        max_idx = SIGN_CLASSES.index("A")
+                    else:
+                        return "", f"Analyzing... [{friendly_hand}]", landmarks, hand_rect
+
+            elif raw_label in ["M", "N", "T"]:
+                # Professional disambiguation for similar gestures
+                if self._verify_m_gesture(lms_obj):
+                    raw_label = "M"
+                    max_idx = SIGN_CLASSES.index("M")
+                elif self._verify_n_gesture(lms_obj):
+                    raw_label = "N"
+                    max_idx = SIGN_CLASSES.index("N")
+                elif self._verify_t_gesture(lms_obj):
+                    raw_label = "T"
+                    max_idx = SIGN_CLASSES.index("T")
+
+            elif raw_label in ["E", "I"]:
+                if self._verify_e_gesture(lms_obj):
+                    raw_label = "E"
+                    max_idx = SIGN_CLASSES.index("E")
+                elif self._verify_i_gesture(lms_obj):
+                    raw_label = "I"
+                    max_idx = SIGN_CLASSES.index("I")
+
+            # 4. Stabilization
             stable_gesture = self.stabilizer.update(max_idx, confidence)
             
             hand_rect = self._get_hand_rect(frame, lms_obj)
@@ -179,9 +227,78 @@ class SignInference:
         return f_up, t_ex, vert
 
     def _is_space_gesture(self, lms):
-        """Heuristic for 'SPACE' (Open Palm)."""
+        """Heuristic for 'SPACE' (Wide Open Palm)."""
         f_up, t_ex, vert = self._get_space_debug(lms)
-        return f_up and t_ex and vert
+        
+        # Additional spread check for Space: Distance between Index and Middle tips
+        # Normalize by palm size (0 to 9)
+        palm_size = abs(lms[0].y - lms[9].y)
+        spread = abs(lms[8].x - lms[12].x) / palm_size if palm_size > 0 else 0
+        is_spread = spread > 0.4 # Fingers must be apart
+        
+        return f_up and t_ex and vert and is_spread
+
+    def _verify_b_gesture(self, lms):
+        """'B' check: All fingers up but touching each other."""
+        f_up, t_ex, vert = self._get_space_debug(lms)
+        
+        # Fingers touching check
+        palm_size = abs(lms[0].y - lms[9].y)
+        total_spread = abs(lms[8].x - lms[20].x) / palm_size if palm_size > 0 else 1.0
+        is_closed = total_spread < 0.6 # Fingers are held close together
+        
+        return f_up and is_closed
+
+    def _verify_y_gesture(self, lms):
+        """'Y' check: Pinky tip (20) must be significantly extended above pinky MCP (17)."""
+        pinky_extended = (lms[20].y < lms[18].y) and (lms[20].y < lms[17].y)
+        # Thumb also usually out for 'Y'
+        thumb_out = abs(lms[4].x - lms[5].x) > 0.02
+        return pinky_extended and thumb_out
+
+    def _verify_a_gesture(self, lms):
+        """'A' check: All fingers (8, 12, 16, 20) should be below their corresponding MCPs (Fist)."""
+        pinky_folded = lms[20].y > lms[18].y
+        ring_folded = lms[16].y > lms[14].y
+        middle_folded = lms[12].y > lms[10].y
+        index_folded = lms[8].y > lms[6].y
+        return pinky_folded and ring_folded and middle_folded and index_folded
+
+    def _verify_e_gesture(self, lms):
+        """'E' check: All fingers are folded down toward the palm."""
+        pinky_folded = lms[20].y > lms[18].y - 0.02
+        ring_folded = lms[16].y > lms[14].y
+        middle_folded = lms[12].y > lms[10].y
+        index_folded = lms[8].y > lms[6].y
+        return pinky_folded and ring_folded and middle_folded and index_folded
+
+    def _verify_i_gesture(self, lms):
+        """'I' check: Pinky is strictly extended upwards, others are folded."""
+        pinky_extended = lms[20].y < lms[18].y - 0.02
+        ring_folded = lms[16].y > lms[14].y
+        middle_folded = lms[12].y > lms[10].y
+        index_folded = lms[8].y > lms[6].y
+        return pinky_extended and ring_folded and middle_folded and index_folded
+
+    def _verify_m_gesture(self, lms):
+        """'M' check: Thumb tip (4) is near the pinky base/MCP (17/18)."""
+        # In 'M', the thumb is deep under index, middle, ring.
+        # It's usually horizontally near the ring or pinky MCP.
+        dist_to_ring = abs(lms[4].x - lms[13].x)
+        dist_to_pinky = abs(lms[4].x - lms[17].x)
+        return dist_to_ring < 0.05 or dist_to_pinky < 0.05
+
+    def _verify_n_gesture(self, lms):
+        """'N' check: Thumb tip (4) is near the middle/ring gap."""
+        dist_to_middle = abs(lms[4].x - lms[9].x)
+        dist_to_ring = abs(lms[4].x - lms[13].x)
+        return dist_to_middle < 0.05 and not self._verify_m_gesture(lms)
+
+    def _verify_t_gesture(self, lms):
+        """'T' check: Thumb tip (4) is near the index/middle gap."""
+        dist_to_index = abs(lms[4].x - lms[5].x)
+        dist_to_middle = abs(lms[4].x - lms[9].x)
+        return dist_to_index < 0.05 and not (self._verify_m_gesture(lms) or self._verify_n_gesture(lms))
 
     def _get_hand_rect(self, frame, lms):
         h, w, _ = frame.shape

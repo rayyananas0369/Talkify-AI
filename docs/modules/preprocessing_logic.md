@@ -56,7 +56,7 @@ class SequenceBuffer:
 ```
 
 ### 3. Region of Interest (ROI) Cropping
-For Lip Reading, we don't need the whole face.
+For Voice Recognition, we don't need the whole face.
 
 **Workflow**:
 1. Get the bounding box of the lips from FaceMesh.

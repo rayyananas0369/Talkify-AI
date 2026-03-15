@@ -47,7 +47,7 @@ def landmarks_to_list(landmarks):
             feat.extend([lm.x, lm.y, lm.z])
     return feat
 
-def flip_landmarks(landmarks):
+def fvoice_landmarks(landmarks):
     """
     Mirrors landmarks along the X-axis (useful for 'Smart Mirroring').
     Assumes landmarks are normalized or relative.

@@ -5,10 +5,17 @@ import sys
 # Set up environment
 os.environ['PYTHONPATH'] = '.'
 
-# Run backend
-with open('backend_log.txt', 'w') as f:
+print("Starting backend with logging...")
+log_file = 'backend_debug_log.txt'
+with open(log_file, 'w') as f:
     try:
-        subprocess.run([r'C:\Users\Delta Infosys\AppData\Local\Programs\Python\Python310\python.exe', '-m', 'backend.main'], 
-                       stdout=f, stderr=subprocess.STDOUT, check=True)
+        # Use simple 'python' as it was verified to work in previous steps
+        process = subprocess.run(['python', '-m', 'backend.main'], 
+                               stdout=f, stderr=subprocess.STDOUT, check=True)
+        print("Backend exited normally.")
+    except subprocess.CalledProcessError as e:
+        print(f"Backend CRASHED with exit code {e.returncode}")
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Unexpected error: {e}")
+
+print(f"Check {log_file} for details.")

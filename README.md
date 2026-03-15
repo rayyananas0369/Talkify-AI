@@ -4,11 +4,11 @@
 [![Powered by](https://img.shields.io/badge/Backend-FastAPI-blue)](#)
 [![Powered by](https://img.shields.io/badge/Frontend-React-61dafb)](#)
 
-Talkify AI is an advanced, real-time communication bridge designed for the hearing and speech impaired community. By leveraging cutting-edge computer vision and deep learning, it translates lip movements and sign language gestures into readable text instantly.
+Talkify AI is an advanced, real-time communication bridge designed for the hearing and speech impaired community. By leveraging cutting-edge computer vision and deep learning, it translates voice movements and sign language gestures into readable text instantly.
 
 ## 🌟 Key Features
 
-- **Lip Reading**: Real-time recognition of lip movements in **English**.
+- **Voice Recognition**: Real-time recognition of voice movements in **English**.
 - **Sign Language Recognition**: High-accuracy translation of ASL gestures using YOLOv8 and MediaPipe.
 - **Hybrid AI Engine**: Combines MediaPipe keypoint extraction with CNN-LSTM temporal processing.
 - **Real-time Performance**: Optimized for low-latency feedback (<500ms).
@@ -24,7 +24,7 @@ Talkify AI is an advanced, real-time communication bridge designed for the heari
 - **Rayyan**: Backend Development & Integration
 - **Ardra**: UI/UX Design & Frontend Implementation
 - **Angel**: API Design & Frontend Communication
-- **Nithya**: AI Models (Lip Reading & Sign Recognition)
+- **Nithya**: AI Models (Voice Recognition & Sign Recognition)
 
 ## 📂 Documentation
 

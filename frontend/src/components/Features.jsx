@@ -1,4 +1,4 @@
-import { Hand, Accessibility, Repeat, Languages } from "lucide-react";
+import { Hand, Accessibility, Repeat, Mic } from "lucide-react";
 
 export default function Features() {
     const features = [
@@ -9,9 +9,9 @@ export default function Features() {
             bg: "bg-indigo-50"
         },
         {
-            title: "Lip Reading Technology",
-            desc: "Cutting-edge lip reading algorithms convert visual speech into written text.",
-            icon: <Languages className="w-6 h-6 text-pink-600" />,
+            title: "Voice Recognition Technology",
+            desc: "Advanced voice recognition algorithms convert speech into written text.",
+            icon: <Mic className="w-6 h-6 text-pink-600" />,
             bg: "bg-pink-50"
         },
         {
